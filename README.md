@@ -89,8 +89,12 @@ No modules.
 | [aws_alb_target_group.target_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/alb_target_group) | resource |
 | [aws_appautoscaling_policy.scale_by_cpu_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
 | [aws_appautoscaling_policy.scale_by_memory_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
+| [aws_appautoscaling_policy.scale_in_by_alarm_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
+| [aws_appautoscaling_policy.scale_out_by_alarm_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
 | [aws_appautoscaling_target.ecs_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_target) | resource |
 | [aws_cloudwatch_log_group.ecs_log_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
+| [aws_cloudwatch_metric_alarm.in_auto_scaling](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
+| [aws_cloudwatch_metric_alarm.out_auto_scaling](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
 | [aws_ecs_service.ecs_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service) | resource |
 | [aws_ecs_task_definition.task_definition](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
 | [aws_lb_listener_rule.host_rule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
@@ -101,7 +105,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Whether to assign a public IP. | `bool` | `false` | no |
+| <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Whether to assign a public IP. | `bool` | `true` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The Name of the ECS cluster. | `string` | n/a | yes |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | The name of the container. | `string` | `"app"` | no |
 | <a name="input_container_port"></a> [container\_port](#input\_container\_port) | The port of the container. | `number` | `80` | no |
@@ -124,14 +128,27 @@ No modules.
 | <a name="input_health_check_unhealthy_threshold"></a> [health\_check\_unhealthy\_threshold](#input\_health\_check\_unhealthy\_threshold) | Unhealthy threshold for the health check. | `number` | `2` | no |
 | <a name="input_host_header_value"></a> [host\_header\_value](#input\_host\_header\_value) | Host header value for the listener rule. | `string` | `""` | no |
 | <a name="input_host_rule_priority"></a> [host\_rule\_priority](#input\_host\_rule\_priority) | Priority for the host rule. | `number` | `1000` | no |
+| <a name="input_launch_type"></a> [launch\_type](#input\_launch\_type) | The launch type of the ECS service. | `string` | `"FARGATE"` | no |
 | <a name="input_listener_arn"></a> [listener\_arn](#input\_listener\_arn) | ARN of the load balancer. | `string` | `null` | no |
 | <a name="input_max_capacity"></a> [max\_capacity](#input\_max\_capacity) | Maximum number of tasks for scaling | `number` | `10` | no |
 | <a name="input_min_capacity"></a> [min\_capacity](#input\_min\_capacity) | Minimum number of tasks for scaling | `number` | `1` | no |
 | <a name="input_path_pattern_value"></a> [path\_pattern\_value](#input\_path\_pattern\_value) | Path pattern value for the listener rule. | `string` | `""` | no |
 | <a name="input_path_rule_priority"></a> [path\_rule\_priority](#input\_path\_rule\_priority) | Priority for the path rule. | `number` | `1000` | no |
+| <a name="input_queue_name"></a> [queue\_name](#input\_queue\_name) | The name of the SQS queue. | `string` | `""` | no |
+| <a name="input_scale_by_alarm_enabled"></a> [scale\_by\_alarm\_enabled](#input\_scale\_by\_alarm\_enabled) | Whether to enable scaling by alarm. | `bool` | `false` | no |
+| <a name="input_scale_by_alarm_in_adjustment"></a> [scale\_by\_alarm\_in\_adjustment](#input\_scale\_by\_alarm\_in\_adjustment) | The adjustment for scaling in by alarm. | `number` | `-1` | no |
+| <a name="input_scale_by_alarm_in_cooldown"></a> [scale\_by\_alarm\_in\_cooldown](#input\_scale\_by\_alarm\_in\_cooldown) | The cooldown for scaling in by alarm. | `number` | `300` | no |
+| <a name="input_scale_by_alarm_in_name"></a> [scale\_by\_alarm\_in\_name](#input\_scale\_by\_alarm\_in\_name) | The name of the in alarm. | `string` | `""` | no |
+| <a name="input_scale_by_alarm_in_threshold"></a> [scale\_by\_alarm\_in\_threshold](#input\_scale\_by\_alarm\_in\_threshold) | The target value for scaling in by alarm. | `number` | `15` | no |
+| <a name="input_scale_by_alarm_out_adjustment"></a> [scale\_by\_alarm\_out\_adjustment](#input\_scale\_by\_alarm\_out\_adjustment) | The adjustment for scaling out by alarm. | `number` | `1` | no |
+| <a name="input_scale_by_alarm_out_cooldown"></a> [scale\_by\_alarm\_out\_cooldown](#input\_scale\_by\_alarm\_out\_cooldown) | The cooldown for scaling out by alarm. | `number` | `300` | no |
+| <a name="input_scale_by_alarm_out_name"></a> [scale\_by\_alarm\_out\_name](#input\_scale\_by\_alarm\_out\_name) | The name of the out alarm. | `string` | `""` | no |
+| <a name="input_scale_by_alarm_out_threshold"></a> [scale\_by\_alarm\_out\_threshold](#input\_scale\_by\_alarm\_out\_threshold) | The target value for scaling out by alarm. | `number` | `85` | no |
+| <a name="input_scale_by_cpu_enabled"></a> [scale\_by\_cpu\_enabled](#input\_scale\_by\_cpu\_enabled) | Whether to enable scaling by CPU. | `bool` | `false` | no |
 | <a name="input_scale_by_cpu_in_cooldown"></a> [scale\_by\_cpu\_in\_cooldown](#input\_scale\_by\_cpu\_in\_cooldown) | The cooldown for scaling in by CPU. | `number` | `300` | no |
 | <a name="input_scale_by_cpu_out_cooldown"></a> [scale\_by\_cpu\_out\_cooldown](#input\_scale\_by\_cpu\_out\_cooldown) | The cooldown for scaling out by CPU. | `number` | `300` | no |
 | <a name="input_scale_by_cpu_target_value"></a> [scale\_by\_cpu\_target\_value](#input\_scale\_by\_cpu\_target\_value) | The target value for scaling by CPU. | `number` | `50` | no |
+| <a name="input_scale_by_memory_enabled"></a> [scale\_by\_memory\_enabled](#input\_scale\_by\_memory\_enabled) | Whether to enable scaling by memory. | `bool` | `false` | no |
 | <a name="input_scale_by_memory_in_cooldown"></a> [scale\_by\_memory\_in\_cooldown](#input\_scale\_by\_memory\_in\_cooldown) | The cooldown for scaling in by memory. | `number` | `300` | no |
 | <a name="input_scale_by_memory_out_cooldown"></a> [scale\_by\_memory\_out\_cooldown](#input\_scale\_by\_memory\_out\_cooldown) | The cooldown for scaling out by memory. | `number` | `300` | no |
 | <a name="input_scale_by_memory_target_value"></a> [scale\_by\_memory\_target\_value](#input\_scale\_by\_memory\_target\_value) | The target value for scaling by memory. | `number` | `50` | no |
