@@ -19,6 +19,12 @@ variable "container_name" {
   type        = string
   default     = "app"
 }
+variable "launch_type" {
+  description = "The launch type of the ECS service."
+  type        = string
+  default     = "FARGATE"
+
+}
 
 ############# Network Configuration #############
 variable "vpc_id" {
@@ -41,7 +47,7 @@ variable "subnets" {
 variable "assign_public_ip" {
   description = "Whether to assign a public IP."
   type        = bool
-  default     = false
+  default     = true
 }
 variable "listener_arn" {
   description = "ARN of the load balancer."
@@ -213,6 +219,12 @@ variable "scale_by_cpu_target_value" {
   type        = number
   default     = 50
 }
+variable "scale_by_cpu_enabled" {
+  description = "Whether to enable scaling by CPU."
+  type        = bool
+  default     = false
+
+}
 variable "scale_by_cpu_in_cooldown" {
   description = "The cooldown for scaling in by CPU."
   type        = number
@@ -224,7 +236,12 @@ variable "scale_by_cpu_out_cooldown" {
   type        = number
   default     = 300
 }
+variable "scale_by_memory_enabled" {
+  description = "Whether to enable scaling by memory."
+  type        = bool
+  default     = false
 
+}
 variable "scale_by_memory_target_value" {
   description = "The target value for scaling by memory."
   type        = number
@@ -243,6 +260,70 @@ variable "scale_by_memory_out_cooldown" {
   default     = 300
 }
 
+variable "scale_by_alarm_in_threshold" {
+  description = "The target value for scaling in by alarm."
+  type        = number
+  default     = 15
+
+}
+
+variable "scale_by_alarm_out_threshold" {
+  description = "The target value for scaling out by alarm."
+  type        = number
+  default     = 85
+}
+variable "scale_by_alarm_enabled" {
+  description = "Whether to enable scaling by alarm."
+  type        = bool
+  default     = false
+
+}
+variable "scale_by_alarm_out_name" {
+  description = "The name of the out alarm."
+  type        = string
+  default     = ""
+
+}
+variable "scale_by_alarm_in_name" {
+  description = "The name of the in alarm."
+  type        = string
+  default     = ""
+
+}
+
+variable "scale_by_alarm_in_cooldown" {
+  description = "The cooldown for scaling in by alarm."
+  type        = number
+  default     = 300
+
+}
+
+variable "scale_by_alarm_out_cooldown" {
+  description = "The cooldown for scaling out by alarm."
+  type        = number
+  default     = 300
+
+}
+
+variable "scale_by_alarm_in_adjustment" {
+  description = "The adjustment for scaling in by alarm."
+  type        = number
+  default     = -1
+
+}
+
+variable "scale_by_alarm_out_adjustment" {
+  description = "The adjustment for scaling out by alarm."
+  type        = number
+  default     = 1
+
+}
+variable "queue_name" {
+  description = "The name of the SQS queue."
+  type        = string
+  default     = ""
+
+}
 ############## Execution Role Configuration #############
 
 variable "execution_role_arn" {
