@@ -8,9 +8,10 @@ resource "aws_cloudwatch_log_group" "ecs_log_group" {
 }
 
 resource "aws_lb_listener_rule" "host_rule" {
-  count        = var.host_header_value != "" ? 1 : 0
+  for_each = { for idx, rule in var.host_rules : idx => rule }
+
   listener_arn = var.listener_arn
-  priority     = var.host_rule_priority
+  priority     = each.value.priority
 
   action {
     type             = "forward"
@@ -19,15 +20,15 @@ resource "aws_lb_listener_rule" "host_rule" {
 
   condition {
     host_header {
-      values = [var.host_header_value]
+      values = [each.value.value]
     }
   }
 }
-
 resource "aws_lb_listener_rule" "path_rule" {
-  count        = var.path_pattern_value != "" ? 1 : 0
+  for_each = { for idx, rule in var.path_rules : idx => rule }
+
   listener_arn = var.listener_arn
-  priority     = var.path_rule_priority
+  priority     = each.value.priority
 
   action {
     type             = "forward"
@@ -36,7 +37,7 @@ resource "aws_lb_listener_rule" "path_rule" {
 
   condition {
     path_pattern {
-      values = [var.path_pattern_value]
+      values = [each.value.value]
     }
   }
 }
@@ -102,7 +103,7 @@ resource "aws_ecs_service" "ecs_service" {
   launch_type            = var.launch_type
   scheduling_strategy    = "REPLICA"
   propagate_tags         = "NONE"
-  # platform_version       = "LATEST"
+  platform_version       = "LATEST"
   deployment_controller {
     type = "ECS"
   }
@@ -328,3 +329,5 @@ resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
     }
   }
 }
+
+

@@ -55,28 +55,23 @@ variable "listener_arn" {
   default     = null
 }
 
-variable "host_rule_priority" {
-  description = "Priority for the host rule."
-  type        = number
-  default     = 1000
+variable "host_rules" {
+  description = "Host rules for the listener."
+  type        = list(object({
+    value     = string
+    priority           = number
+  }))
+  default     = []
+  
 }
 
-variable "host_header_value" {
-  description = "Host header value for the listener rule."
-  type        = string
-  default     = ""
-}
-
-variable "path_rule_priority" {
-  description = "Priority for the path rule."
-  type        = number
-  default     = 1000
-}
-
-variable "path_pattern_value" {
-  description = "Path pattern value for the listener rule."
-  type        = string
-  default     = ""
+variable "path_rules" {
+  description = "Path rules for the listener."
+  type        = list(object({
+    value     = string
+    priority           = number
+  }))
+  default     = []
 }
 variable "container_port" {
   description = "The port of the container."
