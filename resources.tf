@@ -207,6 +207,7 @@ resource "aws_appautoscaling_policy" "scale_out_by_alarm_policy" {
       scaling_adjustment          = var.scale_by_alarm_out_adjustment
     }
   }
+  depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
 resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
   count              = var.scale_by_alarm_enabled ? 1 : 0
@@ -228,6 +229,7 @@ resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
       scaling_adjustment          = var.scale_by_alarm_in_adjustment
     }
   }
+  depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
 
 ###################
@@ -236,7 +238,7 @@ resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
   alarm_name          = "${var.cluster_name}/${var.service_name}/in-auto-scaling"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 1
-  threshold           = var.scale_by_alarm_in_threshold 
+  threshold           = var.scale_by_alarm_in_threshold
   alarm_description   = "Alarm when SQS backlog per instance"
   alarm_actions       = [aws_appautoscaling_policy.scale_in_by_alarm_policy[0].arn]
   treat_missing_data  = "breaching"
@@ -326,5 +328,3 @@ resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
     }
   }
 }
-
-
