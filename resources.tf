@@ -280,6 +280,7 @@ resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
       }
     }
   }
+    depends_on = [aws_ecs_service.ecs_service]
 }
 
 resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
@@ -328,6 +329,7 @@ resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
       }
     }
   }
+    depends_on = [aws_ecs_service.ecs_service]
 }
 
 
