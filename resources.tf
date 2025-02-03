@@ -70,13 +70,13 @@ resource "aws_ecs_task_definition" "task_definition" {
   execution_role_arn       = var.execution_role_arn
   container_definitions = jsonencode([
     {
-      name      = "app"
-      image     = "nginx:stable"
+      name      = var.container_name
+      image     = var.container_image
       essential = true
       portMappings = [
         {
-          containerPort = 80
-          hostPort      = 80
+          containerPort = var.container_port
+          hostPort      = var.host_port
           protocol      = "tcp"
         }
       ]

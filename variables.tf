@@ -327,3 +327,30 @@ variable "execution_role_arn" {
   default     = ""
 
 }
+
+################### Container Configuration ###################
+variable "container_image" {
+  description = "The image of the container."
+  type        = string
+  default     = "nginx:latest"
+  
+}
+variable "container_port" {
+  description = "The port of the container."
+  type        = number
+  default     = 80
+  
+}
+variable "container_name" {
+  description = "The name of the container."
+  type        = string
+  default     = "app"
+  
+}
+
+variable "host_port" {
+  description = "The port of the host."
+  type        = number
+  default     = 80
+  
+}
