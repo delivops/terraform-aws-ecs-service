@@ -131,13 +131,12 @@ No modules.
 | <a name="input_health_check_protocol"></a> [health\_check\_protocol](#input\_health\_check\_protocol) | Protocol for the health check. | `string` | `"HTTP"` | no |
 | <a name="input_health_check_timeout"></a> [health\_check\_timeout](#input\_health\_check\_timeout) | The timeout for the health check. | `number` | `5` | no |
 | <a name="input_health_check_unhealthy_threshold"></a> [health\_check\_unhealthy\_threshold](#input\_health\_check\_unhealthy\_threshold) | Unhealthy threshold for the health check. | `number` | `2` | no |
-| <a name="input_host_port"></a> [host\_port](#input\_host\_port) | The port of the host. | `number` | `80` | no |
-| <a name="input_host_rules"></a> [host\_rules](#input\_host\_rules) | Host rules for the listener. | <pre>list(object({<br/>    value     = string<br/>    priority           = number<br/>  }))</pre> | `[]` | no |
+| <a name="input_host_rules"></a> [host\_rules](#input\_host\_rules) | Host rules for the listener. | <pre>list(object({<br/>    value    = string<br/>    priority = number<br/>  }))</pre> | `[]` | no |
 | <a name="input_launch_type"></a> [launch\_type](#input\_launch\_type) | The launch type of the ECS service. | `string` | `"FARGATE"` | no |
 | <a name="input_listener_arn"></a> [listener\_arn](#input\_listener\_arn) | ARN of the load balancer. | `string` | `null` | no |
 | <a name="input_max_capacity"></a> [max\_capacity](#input\_max\_capacity) | Maximum number of tasks for scaling | `number` | `10` | no |
 | <a name="input_min_capacity"></a> [min\_capacity](#input\_min\_capacity) | Minimum number of tasks for scaling | `number` | `1` | no |
-| <a name="input_path_rules"></a> [path\_rules](#input\_path\_rules) | Path rules for the listener. | <pre>list(object({<br/>    value     = string<br/>    priority           = number<br/>  }))</pre> | `[]` | no |
+| <a name="input_path_rules"></a> [path\_rules](#input\_path\_rules) | Path rules for the listener. | <pre>list(object({<br/>    value    = string<br/>    priority = number<br/>  }))</pre> | `[]` | no |
 | <a name="input_queue_name"></a> [queue\_name](#input\_queue\_name) | The name of the SQS queue. | `string` | `""` | no |
 | <a name="input_scale_by_alarm_enabled"></a> [scale\_by\_alarm\_enabled](#input\_scale\_by\_alarm\_enabled) | Whether to enable scaling by alarm. | `bool` | `false` | no |
 | <a name="input_scale_by_alarm_in_adjustment"></a> [scale\_by\_alarm\_in\_adjustment](#input\_scale\_by\_alarm\_in\_adjustment) | The adjustment for scaling in by alarm. | `number` | `-1` | no |
