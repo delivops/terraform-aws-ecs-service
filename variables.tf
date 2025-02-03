@@ -52,21 +52,21 @@ variable "listener_arn" {
 
 variable "host_rules" {
   description = "Host rules for the listener."
-  type        = list(object({
-    value     = string
-    priority           = number
+  type = list(object({
+    value    = string
+    priority = number
   }))
-  default     = []
-  
+  default = []
+
 }
 
 variable "path_rules" {
   description = "Path rules for the listener."
-  type        = list(object({
-    value     = string
-    priority           = number
+  type = list(object({
+    value    = string
+    priority = number
   }))
-  default     = []
+  default = []
 }
 
 variable "enable_target_group" {
@@ -324,24 +324,18 @@ variable "container_image" {
   description = "The image of the container."
   type        = string
   default     = "nginx:latest"
-  
+
 }
 variable "container_port" {
   description = "The port of the container."
   type        = number
   default     = 80
-  
+
 }
 variable "container_name" {
   description = "The name of the container."
   type        = string
   default     = "app"
-  
+
 }
 
-variable "host_port" {
-  description = "The port of the host."
-  type        = number
-  default     = 80
-  
-}
