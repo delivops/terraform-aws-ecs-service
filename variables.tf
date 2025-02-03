@@ -14,11 +14,6 @@ variable "desired_count" {
   type        = number
   default     = 1
 }
-variable "container_name" {
-  description = "The name of the container."
-  type        = string
-  default     = "app"
-}
 variable "launch_type" {
   description = "The launch type of the ECS service."
   type        = string
@@ -73,11 +68,7 @@ variable "path_rules" {
   }))
   default     = []
 }
-variable "container_port" {
-  description = "The port of the container."
-  type        = number
-  default     = 80
-}
+
 variable "enable_target_group" {
   description = "Whether the target group is enabled."
   type        = bool
