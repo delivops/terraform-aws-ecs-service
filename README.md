@@ -111,6 +111,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Whether to assign a public IP. | `bool` | `true` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The Name of the ECS cluster. | `string` | n/a | yes |
+| <a name="input_container_image"></a> [container\_image](#input\_container\_image) | The image of the container. | `string` | `"nginx:latest"` | no |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | The name of the container. | `string` | `"app"` | no |
 | <a name="input_container_port"></a> [container\_port](#input\_container\_port) | The port of the container. | `number` | `80` | no |
 | <a name="input_deployment_circuit_breaker_enabled"></a> [deployment\_circuit\_breaker\_enabled](#input\_deployment\_circuit\_breaker\_enabled) | Whether to enable deployment circuit breaker. | `bool` | `false` | no |
@@ -130,6 +131,7 @@ No modules.
 | <a name="input_health_check_protocol"></a> [health\_check\_protocol](#input\_health\_check\_protocol) | Protocol for the health check. | `string` | `"HTTP"` | no |
 | <a name="input_health_check_timeout"></a> [health\_check\_timeout](#input\_health\_check\_timeout) | The timeout for the health check. | `number` | `5` | no |
 | <a name="input_health_check_unhealthy_threshold"></a> [health\_check\_unhealthy\_threshold](#input\_health\_check\_unhealthy\_threshold) | Unhealthy threshold for the health check. | `number` | `2` | no |
+| <a name="input_host_port"></a> [host\_port](#input\_host\_port) | The port of the host. | `number` | `80` | no |
 | <a name="input_host_rules"></a> [host\_rules](#input\_host\_rules) | Host rules for the listener. | <pre>list(object({<br/>    value     = string<br/>    priority           = number<br/>  }))</pre> | `[]` | no |
 | <a name="input_launch_type"></a> [launch\_type](#input\_launch\_type) | The launch type of the ECS service. | `string` | `"FARGATE"` | no |
 | <a name="input_listener_arn"></a> [listener\_arn](#input\_listener\_arn) | ARN of the load balancer. | `string` | `null` | no |
