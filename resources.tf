@@ -68,6 +68,7 @@ resource "aws_ecs_task_definition" "task_definition" {
   cpu                      = 1024
   memory                   = 2048
   execution_role_arn       = var.execution_role_arn
+  task_role_arn            = var.task_role_arn
   container_definitions = jsonencode([
     {
       name      = var.container_name
@@ -75,8 +76,8 @@ resource "aws_ecs_task_definition" "task_definition" {
       essential = true
       portMappings = [
         {
-          containerPort = 80
-          hostPort      = 80
+          containerPort = var.container_port
+          hostPort      = var.container_port
           protocol      = "tcp"
         }
       ]
@@ -149,7 +150,7 @@ resource "aws_appautoscaling_target" "ecs_target" {
   resource_id        = "service/${var.cluster_name}/${var.service_name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
-  depends_on = [aws_ecs_service.ecs_service]
+  depends_on         = [aws_ecs_service.ecs_service]
 }
 
 resource "aws_appautoscaling_policy" "scale_by_cpu_policy" {
@@ -281,7 +282,7 @@ resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
       }
     }
   }
-    depends_on = [aws_ecs_service.ecs_service]
+  depends_on = [aws_ecs_service.ecs_service]
 }
 
 resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
@@ -330,7 +331,7 @@ resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
       }
     }
   }
-    depends_on = [aws_ecs_service.ecs_service]
+  depends_on = [aws_ecs_service.ecs_service]
 }
 
 

@@ -319,11 +319,18 @@ variable "execution_role_arn" {
 
 }
 
+variable "task_role_arn" {
+  description = "The ARN of the task role."
+  type        = string
+  default     = ""
+  
+}
+
 ################### Container Configuration ###################
 variable "container_image" {
   description = "The image of the container."
   type        = string
-  default     = "nginx:latest"
+  default     = "nginx:stable"
 
 }
 variable "container_port" {
@@ -336,6 +343,5 @@ variable "container_name" {
   description = "The name of the container."
   type        = string
   default     = "app"
-
 }
 
