@@ -72,7 +72,7 @@ variable "path_rules" {
 variable "enable_target_group" {
   description = "Whether the target group is enabled."
   type        = bool
-  default     = true
+  default     = false
 
 }
 variable "target_group_name" {
