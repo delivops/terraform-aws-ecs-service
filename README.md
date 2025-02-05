@@ -122,7 +122,7 @@ No modules.
 | <a name="input_deployment_maximum_percent"></a> [deployment\_maximum\_percent](#input\_deployment\_maximum\_percent) | The maximum percent for deployment. | `number` | `200` | no |
 | <a name="input_deployment_minimum_healthy_percent"></a> [deployment\_minimum\_healthy\_percent](#input\_deployment\_minimum\_healthy\_percent) | The minimum healthy percent for deployment. | `number` | `100` | no |
 | <a name="input_desired_count"></a> [desired\_count](#input\_desired\_count) | The desired count of the ECS service. | `number` | `1` | no |
-| <a name="input_enable_target_group"></a> [enable\_target\_group](#input\_enable\_target\_group) | Whether the target group is enabled. | `bool` | `true` | no |
+| <a name="input_enable_target_group"></a> [enable\_target\_group](#input\_enable\_target\_group) | Whether the target group is enabled. | `bool` | `false` | no |
 | <a name="input_execution_role_arn"></a> [execution\_role\_arn](#input\_execution\_role\_arn) | The ARN of the execution role. | `string` | `""` | no |
 | <a name="input_health_check_healthy_threshold"></a> [health\_check\_healthy\_threshold](#input\_health\_check\_healthy\_threshold) | Healthy threshold for the health check. | `number` | `3` | no |
 | <a name="input_health_check_interval"></a> [health\_check\_interval](#input\_health\_check\_interval) | Interval for the health check. | `number` | `30` | no |
