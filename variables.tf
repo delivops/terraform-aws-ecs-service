@@ -333,12 +333,12 @@ variable "container_name" {
 variable "cpu" {
   description = "The CPU for the container."
   type        = number
-  default     = 0
+  default     = 256
 
 }
 variable "memory" {
   description = "The memory for the container."
   type        = number
-  default     = 0
+  default     = 512
 
 }
