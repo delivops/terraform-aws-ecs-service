@@ -114,7 +114,7 @@ No modules.
 | <a name="input_container_image"></a> [container\_image](#input\_container\_image) | The image of the container. | `string` | `"nginx:stable"` | no |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | The name of the container. | `string` | `"app"` | no |
 | <a name="input_container_port"></a> [container\_port](#input\_container\_port) | The port of the container. | `number` | `80` | no |
-| <a name="input_cpu"></a> [cpu](#input\_cpu) | The CPU for the container. | `number` | `0` | no |
+| <a name="input_cpu"></a> [cpu](#input\_cpu) | The CPU for the container. | `number` | `256` | no |
 | <a name="input_create_target_group"></a> [create\_target\_group](#input\_create\_target\_group) | Whether the target group is enabled. | `bool` | `false` | no |
 | <a name="input_deployment_circuit_breaker_enabled"></a> [deployment\_circuit\_breaker\_enabled](#input\_deployment\_circuit\_breaker\_enabled) | Whether to enable deployment circuit breaker. | `bool` | `false` | no |
 | <a name="input_deployment_circuit_breaker_rollback_enabled"></a> [deployment\_circuit\_breaker\_rollback\_enabled](#input\_deployment\_circuit\_breaker\_rollback\_enabled) | Whether to enable deployment circuit breaker. | `bool` | `false` | no |
@@ -135,7 +135,7 @@ No modules.
 | <a name="input_launch_type"></a> [launch\_type](#input\_launch\_type) | The launch type of the ECS service. | `string` | `"FARGATE"` | no |
 | <a name="input_listener_arn"></a> [listener\_arn](#input\_listener\_arn) | ARN of the load balancer. | `string` | `null` | no |
 | <a name="input_max_capacity"></a> [max\_capacity](#input\_max\_capacity) | Maximum number of tasks for scaling | `number` | `10` | no |
-| <a name="input_memory"></a> [memory](#input\_memory) | The memory for the container. | `number` | `0` | no |
+| <a name="input_memory"></a> [memory](#input\_memory) | The memory for the container. | `number` | `512` | no |
 | <a name="input_min_capacity"></a> [min\_capacity](#input\_min\_capacity) | Minimum number of tasks for scaling | `number` | `1` | no |
 | <a name="input_path_rules"></a> [path\_rules](#input\_path\_rules) | Path rules for the listener. | <pre>list(object({<br/>    value    = string<br/>    priority = number<br/>  }))</pre> | `[]` | no |
 | <a name="input_queue_name"></a> [queue\_name](#input\_queue\_name) | The name of the SQS queue. | `string` | `""` | no |
