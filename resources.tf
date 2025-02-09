@@ -43,7 +43,7 @@ resource "aws_lb_listener_rule" "path_rule" {
 }
 
 resource "aws_alb_target_group" "target_group" {
-  count       = var.enable_target_group ? 1 : 0
+  count       = var.create_target_group ? 1 : 0
   name        = var.target_group_name
   port        = var.target_group_port
   protocol    = var.target_group_protocol
@@ -65,10 +65,8 @@ resource "aws_ecs_task_definition" "task_definition" {
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.service_name}"
   network_mode             = "awsvpc"
   requires_compatibilities = [var.launch_type]
-  cpu                      = 1024
-  memory                   = 2048
-  execution_role_arn       = var.execution_role_arn
-  task_role_arn            = var.task_role_arn
+  cpu                      = var.cpu
+  memory                   = var.memory
   container_definitions = jsonencode([
     {
       name      = var.container_name
@@ -88,7 +86,7 @@ resource "aws_ecs_task_definition" "task_definition" {
     cpu_architecture        = "ARM64"
   }
   lifecycle {
-    ignore_changes = [container_definitions]
+    ignore_changes = [container_definitions, family,memory,cpu,requires_compatibilities,network_mode,runtime_platform]
   }
 }
 
@@ -127,7 +125,7 @@ resource "aws_ecs_service" "ecs_service" {
 
   }
   dynamic "load_balancer" {
-    for_each = var.enable_target_group ? [1] : []
+    for_each = var.create_target_group ? [1] : []
     content {
       target_group_arn = aws_alb_target_group.target_group[0].arn
       container_name   = var.container_name

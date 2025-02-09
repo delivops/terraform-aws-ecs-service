@@ -42,7 +42,7 @@ variable "subnets" {
 variable "assign_public_ip" {
   description = "Whether to assign a public IP."
   type        = bool
-  default     = true
+  default     = false
 }
 variable "listener_arn" {
   description = "ARN of the load balancer."
@@ -69,7 +69,7 @@ variable "path_rules" {
   default = []
 }
 
-variable "enable_target_group" {
+variable "create_target_group" {
   description = "Whether the target group is enabled."
   type        = bool
   default     = false
@@ -310,21 +310,6 @@ variable "queue_name" {
   default     = ""
 
 }
-############## Execution Role Configuration #############
-
-variable "execution_role_arn" {
-  description = "The ARN of the execution role."
-  type        = string
-  default     = ""
-
-}
-
-variable "task_role_arn" {
-  description = "The ARN of the task role."
-  type        = string
-  default     = ""
-  
-}
 
 ################### Container Configuration ###################
 variable "container_image" {
@@ -345,3 +330,15 @@ variable "container_name" {
   default     = "app"
 }
 
+variable "cpu" {
+  description = "The CPU for the container."
+  type        = number
+  default     = 0
+
+}
+variable "memory" {
+  description = "The memory for the container."
+  type        = number
+  default     = 0
+
+}
