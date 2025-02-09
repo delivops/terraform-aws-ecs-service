@@ -109,11 +109,13 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Whether to assign a public IP. | `bool` | `true` | no |
+| <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Whether to assign a public IP. | `bool` | `false` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The Name of the ECS cluster. | `string` | n/a | yes |
 | <a name="input_container_image"></a> [container\_image](#input\_container\_image) | The image of the container. | `string` | `"nginx:stable"` | no |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | The name of the container. | `string` | `"app"` | no |
 | <a name="input_container_port"></a> [container\_port](#input\_container\_port) | The port of the container. | `number` | `80` | no |
+| <a name="input_cpu"></a> [cpu](#input\_cpu) | The CPU for the container. | `number` | `0` | no |
+| <a name="input_create_target_group"></a> [create\_target\_group](#input\_create\_target\_group) | Whether the target group is enabled. | `bool` | `false` | no |
 | <a name="input_deployment_circuit_breaker_enabled"></a> [deployment\_circuit\_breaker\_enabled](#input\_deployment\_circuit\_breaker\_enabled) | Whether to enable deployment circuit breaker. | `bool` | `false` | no |
 | <a name="input_deployment_circuit_breaker_rollback_enabled"></a> [deployment\_circuit\_breaker\_rollback\_enabled](#input\_deployment\_circuit\_breaker\_rollback\_enabled) | Whether to enable deployment circuit breaker. | `bool` | `false` | no |
 | <a name="input_deployment_cloudwatch_alarm_enabled"></a> [deployment\_cloudwatch\_alarm\_enabled](#input\_deployment\_cloudwatch\_alarm\_enabled) | Whether to enable CloudWatch alarms. | `bool` | `false` | no |
@@ -122,8 +124,6 @@ No modules.
 | <a name="input_deployment_maximum_percent"></a> [deployment\_maximum\_percent](#input\_deployment\_maximum\_percent) | The maximum percent for deployment. | `number` | `200` | no |
 | <a name="input_deployment_minimum_healthy_percent"></a> [deployment\_minimum\_healthy\_percent](#input\_deployment\_minimum\_healthy\_percent) | The minimum healthy percent for deployment. | `number` | `100` | no |
 | <a name="input_desired_count"></a> [desired\_count](#input\_desired\_count) | The desired count of the ECS service. | `number` | `1` | no |
-| <a name="input_enable_target_group"></a> [enable\_target\_group](#input\_enable\_target\_group) | Whether the target group is enabled. | `bool` | `false` | no |
-| <a name="input_execution_role_arn"></a> [execution\_role\_arn](#input\_execution\_role\_arn) | The ARN of the execution role. | `string` | `""` | no |
 | <a name="input_health_check_healthy_threshold"></a> [health\_check\_healthy\_threshold](#input\_health\_check\_healthy\_threshold) | Healthy threshold for the health check. | `number` | `3` | no |
 | <a name="input_health_check_interval"></a> [health\_check\_interval](#input\_health\_check\_interval) | Interval for the health check. | `number` | `30` | no |
 | <a name="input_health_check_matcher"></a> [health\_check\_matcher](#input\_health\_check\_matcher) | Matcher for the health check. | `string` | `"200"` | no |
@@ -135,6 +135,7 @@ No modules.
 | <a name="input_launch_type"></a> [launch\_type](#input\_launch\_type) | The launch type of the ECS service. | `string` | `"FARGATE"` | no |
 | <a name="input_listener_arn"></a> [listener\_arn](#input\_listener\_arn) | ARN of the load balancer. | `string` | `null` | no |
 | <a name="input_max_capacity"></a> [max\_capacity](#input\_max\_capacity) | Maximum number of tasks for scaling | `number` | `10` | no |
+| <a name="input_memory"></a> [memory](#input\_memory) | The memory for the container. | `number` | `0` | no |
 | <a name="input_min_capacity"></a> [min\_capacity](#input\_min\_capacity) | Minimum number of tasks for scaling | `number` | `1` | no |
 | <a name="input_path_rules"></a> [path\_rules](#input\_path\_rules) | Path rules for the listener. | <pre>list(object({<br/>    value    = string<br/>    priority = number<br/>  }))</pre> | `[]` | no |
 | <a name="input_queue_name"></a> [queue\_name](#input\_queue\_name) | The name of the SQS queue. | `string` | `""` | no |
@@ -163,7 +164,6 @@ No modules.
 | <a name="input_target_group_port"></a> [target\_group\_port](#input\_target\_group\_port) | The port of the target group. | `number` | `80` | no |
 | <a name="input_target_group_protocol"></a> [target\_group\_protocol](#input\_target\_group\_protocol) | The protocol of the target group. | `string` | `"HTTP"` | no |
 | <a name="input_target_type"></a> [target\_type](#input\_target\_type) | The target type of the target group. | `string` | `"ip"` | no |
-| <a name="input_task_role_arn"></a> [task\_role\_arn](#input\_task\_role\_arn) | The ARN of the task role. | `string` | `""` | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | The VPC ID where the target group is located. | `string` | `""` | no |
 
 ## Outputs
