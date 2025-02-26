@@ -109,62 +109,57 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Whether to assign a public IP. | `bool` | `false` | no |
-| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The Name of the ECS cluster. | `string` | n/a | yes |
-| <a name="input_container_image"></a> [container\_image](#input\_container\_image) | The image of the container. | `string` | `"nginx:stable"` | no |
-| <a name="input_container_name"></a> [container\_name](#input\_container\_name) | The name of the container. | `string` | `"app"` | no |
-| <a name="input_container_port"></a> [container\_port](#input\_container\_port) | The port of the container. | `number` | `80` | no |
-| <a name="input_cpu"></a> [cpu](#input\_cpu) | The CPU for the container. | `number` | `256` | no |
-| <a name="input_create_target_group"></a> [create\_target\_group](#input\_create\_target\_group) | Whether the target group is enabled. | `bool` | `false` | no |
-| <a name="input_deployment_circuit_breaker_enabled"></a> [deployment\_circuit\_breaker\_enabled](#input\_deployment\_circuit\_breaker\_enabled) | Whether to enable deployment circuit breaker. | `bool` | `false` | no |
-| <a name="input_deployment_circuit_breaker_rollback_enabled"></a> [deployment\_circuit\_breaker\_rollback\_enabled](#input\_deployment\_circuit\_breaker\_rollback\_enabled) | Whether to enable deployment circuit breaker. | `bool` | `false` | no |
-| <a name="input_deployment_cloudwatch_alarm_enabled"></a> [deployment\_cloudwatch\_alarm\_enabled](#input\_deployment\_cloudwatch\_alarm\_enabled) | Whether to enable CloudWatch alarms. | `bool` | `false` | no |
-| <a name="input_deployment_cloudwatch_alarm_names"></a> [deployment\_cloudwatch\_alarm\_names](#input\_deployment\_cloudwatch\_alarm\_names) | The CloudWatch alarm names. | `list(string)` | `[]` | no |
-| <a name="input_deployment_cloudwatch_alarm_rollback_enabled"></a> [deployment\_cloudwatch\_alarm\_rollback\_enabled](#input\_deployment\_cloudwatch\_alarm\_rollback\_enabled) | Whether to rollback on CloudWatch alarms. | `bool` | `false` | no |
-| <a name="input_deployment_maximum_percent"></a> [deployment\_maximum\_percent](#input\_deployment\_maximum\_percent) | The maximum percent for deployment. | `number` | `200` | no |
-| <a name="input_deployment_minimum_healthy_percent"></a> [deployment\_minimum\_healthy\_percent](#input\_deployment\_minimum\_healthy\_percent) | The minimum healthy percent for deployment. | `number` | `100` | no |
-| <a name="input_desired_count"></a> [desired\_count](#input\_desired\_count) | The desired count of the ECS service. | `number` | `1` | no |
-| <a name="input_health_check_healthy_threshold"></a> [health\_check\_healthy\_threshold](#input\_health\_check\_healthy\_threshold) | Healthy threshold for the health check. | `number` | `3` | no |
-| <a name="input_health_check_interval"></a> [health\_check\_interval](#input\_health\_check\_interval) | Interval for the health check. | `number` | `30` | no |
-| <a name="input_health_check_matcher"></a> [health\_check\_matcher](#input\_health\_check\_matcher) | Matcher for the health check. | `string` | `"200"` | no |
-| <a name="input_health_check_path"></a> [health\_check\_path](#input\_health\_check\_path) | Path for the health check. | `string` | `"/"` | no |
-| <a name="input_health_check_protocol"></a> [health\_check\_protocol](#input\_health\_check\_protocol) | Protocol for the health check. | `string` | `"HTTP"` | no |
-| <a name="input_health_check_timeout"></a> [health\_check\_timeout](#input\_health\_check\_timeout) | The timeout for the health check. | `number` | `5` | no |
-| <a name="input_health_check_unhealthy_threshold"></a> [health\_check\_unhealthy\_threshold](#input\_health\_check\_unhealthy\_threshold) | Unhealthy threshold for the health check. | `number` | `2` | no |
-| <a name="input_host_rules"></a> [host\_rules](#input\_host\_rules) | Host rules for the listener. | <pre>list(object({<br/>    value    = string<br/>    priority = number<br/>  }))</pre> | `[]` | no |
-| <a name="input_launch_type"></a> [launch\_type](#input\_launch\_type) | The launch type of the ECS service. | `string` | `"FARGATE"` | no |
-| <a name="input_listener_arn"></a> [listener\_arn](#input\_listener\_arn) | ARN of the load balancer. | `string` | `null` | no |
-| <a name="input_max_capacity"></a> [max\_capacity](#input\_max\_capacity) | Maximum number of tasks for scaling | `number` | `10` | no |
-| <a name="input_memory"></a> [memory](#input\_memory) | The memory for the container. | `number` | `512` | no |
-| <a name="input_min_capacity"></a> [min\_capacity](#input\_min\_capacity) | Minimum number of tasks for scaling | `number` | `1` | no |
-| <a name="input_path_rules"></a> [path\_rules](#input\_path\_rules) | Path rules for the listener. | <pre>list(object({<br/>    value    = string<br/>    priority = number<br/>  }))</pre> | `[]` | no |
-| <a name="input_queue_name"></a> [queue\_name](#input\_queue\_name) | The name of the SQS queue. | `string` | `""` | no |
-| <a name="input_scale_by_alarm_enabled"></a> [scale\_by\_alarm\_enabled](#input\_scale\_by\_alarm\_enabled) | Whether to enable scaling by alarm. | `bool` | `false` | no |
+| <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Enable public IP assignment for ECS tasks. | `bool` | `false` | no |
+| <a name="input_container_image"></a> [container\_image](#input\_container\_image) | Docker image for the ECS task. | `string` | `"nginx:stable"` | no |
+| <a name="input_container_name"></a> [container\_name](#input\_container\_name) | Name of the container running in the ECS task. | `string` | `"app"` | no |
+| <a name="input_container_port"></a> [container\_port](#input\_container\_port) | Port exposed by the container. | `number` | `80` | no |
+| <a name="input_deployment_circuit_breaker"></a> [deployment\_circuit\_breaker](#input\_deployment\_circuit\_breaker) | Enable deployment circuit breaker. | `bool` | `false` | no |
+| <a name="input_deployment_cloudwatch_alarm_enabled"></a> [deployment\_cloudwatch\_alarm\_enabled](#input\_deployment\_cloudwatch\_alarm\_enabled) | Enable CloudWatch alarm for deployment. | `bool` | `false` | no |
+| <a name="input_deployment_cloudwatch_alarm_names"></a> [deployment\_cloudwatch\_alarm\_names](#input\_deployment\_cloudwatch\_alarm\_names) | CloudWatch alarm names. | `list(string)` | `[]` | no |
+| <a name="input_deployment_cloudwatch_alarm_rollback"></a> [deployment\_cloudwatch\_alarm\_rollback](#input\_deployment\_cloudwatch\_alarm\_rollback) | Enable rollback on alarm trigger. | `bool` | `false` | no |
+| <a name="input_deployment_max_percent"></a> [deployment\_max\_percent](#input\_deployment\_max\_percent) | Maximum percentage of tasks during deployment. | `number` | `200` | no |
+| <a name="input_deployment_min_healthy"></a> [deployment\_min\_healthy](#input\_deployment\_min\_healthy) | Minimum healthy percent during deployment. | `number` | `100` | no |
+| <a name="input_deployment_rollback"></a> [deployment\_rollback](#input\_deployment\_rollback) | Enable automatic rollback on failure. | `bool` | `false` | no |
+| <a name="input_ecs_cluster_name"></a> [ecs\_cluster\_name](#input\_ecs\_cluster\_name) | Name of the ECS cluster. | `string` | n/a | yes |
+| <a name="input_ecs_launch_type"></a> [ecs\_launch\_type](#input\_ecs\_launch\_type) | Launch type for the ECS service (e.g., 'FARGATE' or 'EC2'). | `string` | `"FARGATE"` | no |
+| <a name="input_ecs_service_name"></a> [ecs\_service\_name](#input\_ecs\_service\_name) | Name of the ECS service. | `string` | n/a | yes |
+| <a name="input_ecs_task_count"></a> [ecs\_task\_count](#input\_ecs\_task\_count) | Desired number of running tasks in the ECS service. | `number` | `1` | no |
+| <a name="input_ecs_task_cpu"></a> [ecs\_task\_cpu](#input\_ecs\_task\_cpu) | CPU units allocated for the ECS task. | `number` | `256` | no |
+| <a name="input_ecs_task_memory"></a> [ecs\_task\_memory](#input\_ecs\_task\_memory) | Memory allocated for the ECS task (in MB). | `number` | `512` | no |
+| <a name="input_enable_autoscaling"></a> [enable\_autoscaling](#input\_enable\_autoscaling) | Enable auto-scaling for the ECS service. | `bool` | `false` | no |
+| <a name="input_enable_target_group"></a> [enable\_target\_group](#input\_enable\_target\_group) | Enable target group creation. | `bool` | `false` | no |
+| <a name="input_health_check_interval_sec"></a> [health\_check\_interval\_sec](#input\_health\_check\_interval\_sec) | Time interval between health checks (in seconds). | `number` | `30` | no |
+| <a name="input_health_check_matcher"></a> [health\_check\_matcher](#input\_health\_check\_matcher) | String to match against the response body for a successful health check. | `string` | `"200"` | no |
+| <a name="input_health_check_path"></a> [health\_check\_path](#input\_health\_check\_path) | Path for health check requests. | `string` | `"/"` | no |
+| <a name="input_health_check_protocol"></a> [health\_check\_protocol](#input\_health\_check\_protocol) | Protocol for health checks. | `string` | `"HTTP"` | no |
+| <a name="input_health_check_threshold_healthy"></a> [health\_check\_threshold\_healthy](#input\_health\_check\_threshold\_healthy) | Number of successful checks before a target is considered healthy. | `number` | `3` | no |
+| <a name="input_health_check_threshold_unhealthy"></a> [health\_check\_threshold\_unhealthy](#input\_health\_check\_threshold\_unhealthy) | Number of failed checks before a target is considered unhealthy. | `number` | `2` | no |
+| <a name="input_health_check_timeout_sec"></a> [health\_check\_timeout\_sec](#input\_health\_check\_timeout\_sec) | Timeout for health check responses (in seconds). | `number` | `5` | no |
+| <a name="input_host_based_routing"></a> [host\_based\_routing](#input\_host\_based\_routing) | List of host-based routing rules. | <pre>list(object({<br/>    host     = string<br/>    priority = number<br/>  }))</pre> | `[]` | no |
+| <a name="input_lb_listener_arn"></a> [lb\_listener\_arn](#input\_lb\_listener\_arn) | ARN of the Load Balancer listener. | `string` | `null` | no |
+| <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain log events in the CloudWatch log group. | `number` | `7` | no |
+| <a name="input_max_task_count"></a> [max\_task\_count](#input\_max\_task\_count) | Maximum number of running tasks. | `number` | `10` | no |
+| <a name="input_min_task_count"></a> [min\_task\_count](#input\_min\_task\_count) | Minimum number of running tasks. | `number` | `1` | no |
+| <a name="input_path_based_routing"></a> [path\_based\_routing](#input\_path\_based\_routing) | List of path-based routing rules. | <pre>list(object({<br/>    path     = string<br/>    priority = number<br/>  }))</pre> | `[]` | no |
+| <a name="input_queue_name"></a> [queue\_name](#input\_queue\_name) | Queue name for scaling. | `string` | `""` | no |
+| <a name="input_queue_scale_in_threshold"></a> [queue\_scale\_in\_threshold](#input\_queue\_scale\_in\_threshold) | Number of messages in the queue that triggers scaling in (reducing tasks). | `number` | `10` | no |
+| <a name="input_queue_scale_out_threshold"></a> [queue\_scale\_out\_threshold](#input\_queue\_scale\_out\_threshold) | Number of messages in the queue that triggers scaling out (increasing tasks). | `number` | `100` | no |
 | <a name="input_scale_by_alarm_in_adjustment"></a> [scale\_by\_alarm\_in\_adjustment](#input\_scale\_by\_alarm\_in\_adjustment) | The adjustment for scaling in by alarm. | `number` | `-1` | no |
-| <a name="input_scale_by_alarm_in_cooldown"></a> [scale\_by\_alarm\_in\_cooldown](#input\_scale\_by\_alarm\_in\_cooldown) | The cooldown for scaling in by alarm. | `number` | `300` | no |
-| <a name="input_scale_by_alarm_in_name"></a> [scale\_by\_alarm\_in\_name](#input\_scale\_by\_alarm\_in\_name) | The name of the in alarm. | `string` | `""` | no |
-| <a name="input_scale_by_alarm_in_threshold"></a> [scale\_by\_alarm\_in\_threshold](#input\_scale\_by\_alarm\_in\_threshold) | The target value for scaling in by alarm. | `number` | `15` | no |
 | <a name="input_scale_by_alarm_out_adjustment"></a> [scale\_by\_alarm\_out\_adjustment](#input\_scale\_by\_alarm\_out\_adjustment) | The adjustment for scaling out by alarm. | `number` | `1` | no |
-| <a name="input_scale_by_alarm_out_cooldown"></a> [scale\_by\_alarm\_out\_cooldown](#input\_scale\_by\_alarm\_out\_cooldown) | The cooldown for scaling out by alarm. | `number` | `300` | no |
-| <a name="input_scale_by_alarm_out_name"></a> [scale\_by\_alarm\_out\_name](#input\_scale\_by\_alarm\_out\_name) | The name of the out alarm. | `string` | `""` | no |
-| <a name="input_scale_by_alarm_out_threshold"></a> [scale\_by\_alarm\_out\_threshold](#input\_scale\_by\_alarm\_out\_threshold) | The target value for scaling out by alarm. | `number` | `85` | no |
-| <a name="input_scale_by_cpu_enabled"></a> [scale\_by\_cpu\_enabled](#input\_scale\_by\_cpu\_enabled) | Whether to enable scaling by CPU. | `bool` | `false` | no |
-| <a name="input_scale_by_cpu_in_cooldown"></a> [scale\_by\_cpu\_in\_cooldown](#input\_scale\_by\_cpu\_in\_cooldown) | The cooldown for scaling in by CPU. | `number` | `300` | no |
-| <a name="input_scale_by_cpu_out_cooldown"></a> [scale\_by\_cpu\_out\_cooldown](#input\_scale\_by\_cpu\_out\_cooldown) | The cooldown for scaling out by CPU. | `number` | `300` | no |
-| <a name="input_scale_by_cpu_target_value"></a> [scale\_by\_cpu\_target\_value](#input\_scale\_by\_cpu\_target\_value) | The target value for scaling by CPU. | `number` | `50` | no |
-| <a name="input_scale_by_memory_enabled"></a> [scale\_by\_memory\_enabled](#input\_scale\_by\_memory\_enabled) | Whether to enable scaling by memory. | `bool` | `false` | no |
-| <a name="input_scale_by_memory_in_cooldown"></a> [scale\_by\_memory\_in\_cooldown](#input\_scale\_by\_memory\_in\_cooldown) | The cooldown for scaling in by memory. | `number` | `300` | no |
-| <a name="input_scale_by_memory_out_cooldown"></a> [scale\_by\_memory\_out\_cooldown](#input\_scale\_by\_memory\_out\_cooldown) | The cooldown for scaling out by memory. | `number` | `300` | no |
-| <a name="input_scale_by_memory_target_value"></a> [scale\_by\_memory\_target\_value](#input\_scale\_by\_memory\_target\_value) | The target value for scaling by memory. | `number` | `50` | no |
-| <a name="input_scaling_enabled"></a> [scaling\_enabled](#input\_scaling\_enabled) | Whether to enable scaling. | `bool` | `false` | no |
-| <a name="input_security_groups"></a> [security\_groups](#input\_security\_groups) | The security groups for the ECS service. | `list(string)` | `[]` | no |
-| <a name="input_service_name"></a> [service\_name](#input\_service\_name) | The name of the ECS service. | `string` | n/a | yes |
-| <a name="input_subnets"></a> [subnets](#input\_subnets) | The subnets for the ECS service. | `list(string)` | `[]` | no |
-| <a name="input_target_group_name"></a> [target\_group\_name](#input\_target\_group\_name) | The name of the target group. | `string` | `"target-group"` | no |
-| <a name="input_target_group_port"></a> [target\_group\_port](#input\_target\_group\_port) | The port of the target group. | `number` | `80` | no |
-| <a name="input_target_group_protocol"></a> [target\_group\_protocol](#input\_target\_group\_protocol) | The protocol of the target group. | `string` | `"HTTP"` | no |
-| <a name="input_target_type"></a> [target\_type](#input\_target\_type) | The target type of the target group. | `string` | `"ip"` | no |
-| <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | The VPC ID where the target group is located. | `string` | `""` | no |
+| <a name="input_scale_cooldown_in_sec"></a> [scale\_cooldown\_in\_sec](#input\_scale\_cooldown\_in\_sec) | Cooldown period (seconds) before scaling in. | `number` | `300` | no |
+| <a name="input_scale_cooldown_out_sec"></a> [scale\_cooldown\_out\_sec](#input\_scale\_cooldown\_out\_sec) | Cooldown period (seconds) before scaling out. | `number` | `300` | no |
+| <a name="input_scale_on_alarm_usage"></a> [scale\_on\_alarm\_usage](#input\_scale\_on\_alarm\_usage) | Enable auto-scaling based on CloudWatch alarms. | `bool` | `false` | no |
+| <a name="input_scale_on_cpu_target"></a> [scale\_on\_cpu\_target](#input\_scale\_on\_cpu\_target) | Target CPU utilization percentage for scaling. | `number` | `50` | no |
+| <a name="input_scale_on_cpu_usage"></a> [scale\_on\_cpu\_usage](#input\_scale\_on\_cpu\_usage) | Enable auto-scaling based on CPU usage. | `bool` | `false` | no |
+| <a name="input_scale_on_memory_target"></a> [scale\_on\_memory\_target](#input\_scale\_on\_memory\_target) | Target memory utilization percentage for scaling. | `number` | `50` | no |
+| <a name="input_scale_on_memory_usage"></a> [scale\_on\_memory\_usage](#input\_scale\_on\_memory\_usage) | Enable auto-scaling based on memory usage. | `bool` | `false` | no |
+| <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | List of security groups attached to the ECS service. | `list(string)` | `[]` | no |
+| <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | List of subnets for the ECS service. | `list(string)` | `[]` | no |
+| <a name="input_target_group_name"></a> [target\_group\_name](#input\_target\_group\_name) | Name of the target group. | `string` | `"target-group"` | no |
+| <a name="input_target_group_port"></a> [target\_group\_port](#input\_target\_group\_port) | Port exposed by the target group. | `number` | `80` | no |
+| <a name="input_target_group_protocol"></a> [target\_group\_protocol](#input\_target\_group\_protocol) | Protocol used by the target group (HTTP/HTTPS). | `string` | `"HTTP"` | no |
+| <a name="input_target_group_type"></a> [target\_group\_type](#input\_target\_group\_type) | Type of target group (IP/INSTANCE). | `string` | `"ip"` | no |
+| <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC where the ECS service is deployed. | `string` | n/a | yes |
 
 ## Outputs
 
