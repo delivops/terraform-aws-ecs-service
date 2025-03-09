@@ -7,7 +7,7 @@ output "ecs_task_definition_arn" {
 }
 
 output "target_group_arn" {
-  value = var.create_target_group ? aws_alb_target_group.target_group[0].arn : null
+  value = var.enable_target_group ? aws_alb_target_group.target_group[0].arn : null
 }
 
 output "cloudwatch_log_group_name" {
