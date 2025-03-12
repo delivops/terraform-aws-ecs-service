@@ -39,12 +39,23 @@ resource "aws_lb_listener_rule" "rule" {
     target_group_arn = aws_alb_target_group.target_group[each.value.target_group_name].arn
   }
 
-  condition {
-    host_header {
-      values = lookup(each.value, "host", null) != null ? [each.value.host] : []
+  # Host header condition (if host is set)
+  dynamic "condition" {
+    for_each = lookup(each.value, "host", null) != null ? [each.value.host] : []
+    content {
+      host_header {
+        values = [condition.value]
+      }
     }
-    path_pattern {
-      values = lookup(each.value, "path", null) != null ? [each.value.path] : []
+  }
+
+  # Path pattern condition (if path is set)
+  dynamic "condition" {
+    for_each = lookup(each.value, "path", null) != null ? [each.value.path] : []
+    content {
+      path_pattern {
+        values = [condition.value]
+      }
     }
   }
 }
