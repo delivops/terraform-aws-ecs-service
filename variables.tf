@@ -43,27 +43,18 @@ variable "service_target_groups" {
   default = []
 }
 
-# Host-based routing
-variable "host_based_routing" {
-  description = "List of host-based routing rules"
+# Host/Path-based routing
+variable "rules_routing" {
+  description = "List of host/path-based routing rules"
   type = list(object({
     priority          = number
-    value             = string
+    host              = optional(string)
+    path              = optional(string)
     target_group_name = string
   }))
   default = []
 }
 
-# Path-based routing
-variable "path_based_routing" {
-  description = "List of path-based routing rules"
-  type = list(object({
-    priority          = number
-    value             = string
-    target_group_name = string
-  }))
-  default = []
-}
 
 variable "lb_listener_arn" {
   description = "ARN of the load balancer listener"

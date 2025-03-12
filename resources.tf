@@ -27,9 +27,9 @@ resource "aws_alb_target_group" "target_group" {
   }
 }
 
-# Modified host-based routing to reference specific target groups
-resource "aws_lb_listener_rule" "host_rule" {
-  for_each = { for idx, rule in var.host_based_routing : idx => rule }
+# Modified rules routing to reference specific target groups
+resource "aws_lb_listener_rule" "rule" {
+  for_each = { for idx, rule in var.rules_routing : idx => rule }
 
   listener_arn = var.lb_listener_arn
   priority     = each.value.priority
@@ -41,29 +41,14 @@ resource "aws_lb_listener_rule" "host_rule" {
 
   condition {
     host_header {
-      values = [each.value.value]
+      values = lookup(each.value, "host", null) != null ? [each.value.host] : []
     }
-  }
-}
-
-# Modified path-based routing to reference specific target groups
-resource "aws_lb_listener_rule" "path_rule" {
-  for_each = { for idx, rule in var.path_based_routing : idx => rule }
-
-  listener_arn = var.lb_listener_arn
-  priority     = each.value.priority
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_alb_target_group.target_group[each.value.target_group_name].arn
-  }
-
-  condition {
     path_pattern {
-      values = [each.value.value]
+      values = lookup(each.value, "path", null) != null ? [each.value.path] : []
     }
   }
 }
+
 
 resource "aws_ecs_task_definition" "task_definition" {
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
@@ -142,7 +127,7 @@ resource "aws_ecs_service" "ecs_service" {
     ignore_changes = [task_definition]
   }
 
-  depends_on = [aws_lb_listener_rule.host_rule, aws_lb_listener_rule.path_rule]
+  depends_on = [aws_lb_listener_rule.rule]
 }
 
 resource "aws_appautoscaling_target" "ecs_target" {
