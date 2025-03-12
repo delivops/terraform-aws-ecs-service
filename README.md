@@ -101,8 +101,7 @@ No modules.
 | [aws_cloudwatch_metric_alarm.out_auto_scaling](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
 | [aws_ecs_service.ecs_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service) | resource |
 | [aws_ecs_task_definition.task_definition](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
-| [aws_lb_listener_rule.host_rule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
-| [aws_lb_listener_rule.path_rule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
+| [aws_lb_listener_rule.rule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_ecs_cluster.ecs_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecs_cluster) | data source |
 
 ## Inputs
@@ -134,15 +133,14 @@ No modules.
 | <a name="input_health_check_threshold_healthy"></a> [health\_check\_threshold\_healthy](#input\_health\_check\_threshold\_healthy) | Number of consecutive successful health checks | `number` | `3` | no |
 | <a name="input_health_check_threshold_unhealthy"></a> [health\_check\_threshold\_unhealthy](#input\_health\_check\_threshold\_unhealthy) | Number of consecutive failed health checks | `number` | `3` | no |
 | <a name="input_health_check_timeout_sec"></a> [health\_check\_timeout\_sec](#input\_health\_check\_timeout\_sec) | Timeout for health checks in seconds | `number` | `5` | no |
-| <a name="input_host_based_routing"></a> [host\_based\_routing](#input\_host\_based\_routing) | List of host-based routing rules | <pre>list(object({<br/>    priority          = number<br/>    value             = string<br/>    target_group_name = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_lb_listener_arn"></a> [lb\_listener\_arn](#input\_lb\_listener\_arn) | ARN of the load balancer listener | `string` | `""` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs | `number` | `30` | no |
 | <a name="input_max_task_count"></a> [max\_task\_count](#input\_max\_task\_count) | Maximum number of tasks | `number` | `10` | no |
 | <a name="input_min_task_count"></a> [min\_task\_count](#input\_min\_task\_count) | Minimum number of tasks | `number` | `1` | no |
-| <a name="input_path_based_routing"></a> [path\_based\_routing](#input\_path\_based\_routing) | List of path-based routing rules | <pre>list(object({<br/>    priority          = number<br/>    value             = string<br/>    target_group_name = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_queue_name"></a> [queue\_name](#input\_queue\_name) | Name of the SQS queue for scaling metrics | `string` | `""` | no |
 | <a name="input_queue_scale_in_threshold"></a> [queue\_scale\_in\_threshold](#input\_queue\_scale\_in\_threshold) | Threshold for scaling in based on queue metrics | `number` | `1` | no |
 | <a name="input_queue_scale_out_threshold"></a> [queue\_scale\_out\_threshold](#input\_queue\_scale\_out\_threshold) | Threshold for scaling out based on queue metrics | `number` | `10` | no |
+| <a name="input_rules_routing"></a> [rules\_routing](#input\_rules\_routing) | List of host/path-based routing rules | <pre>list(object({<br/>    priority          = number<br/>    host              = optional(string)<br/>    path              = optional(string)<br/>    target_group_name = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_scale_by_alarm_in_adjustment"></a> [scale\_by\_alarm\_in\_adjustment](#input\_scale\_by\_alarm\_in\_adjustment) | Number of tasks to remove when scaling in | `number` | `-1` | no |
 | <a name="input_scale_by_alarm_out_adjustment"></a> [scale\_by\_alarm\_out\_adjustment](#input\_scale\_by\_alarm\_out\_adjustment) | Number of tasks to add when scaling out | `number` | `1` | no |
 | <a name="input_scale_cooldown_in_sec"></a> [scale\_cooldown\_in\_sec](#input\_scale\_cooldown\_in\_sec) | Cooldown period in seconds for scaling in | `number` | `300` | no |
