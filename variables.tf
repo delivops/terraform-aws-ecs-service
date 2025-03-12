@@ -92,11 +92,13 @@ variable "ecs_task_memory" {
 variable "container_name" {
   description = "Name of the container"
   type        = string
+  default     = "app"
 }
 
 variable "container_image" {
   description = "Docker image for the container"
   type        = string
+  default     = "nginx:latest"
 }
 
 variable "container_port" {
