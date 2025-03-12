@@ -2,64 +2,75 @@ data "aws_ecs_cluster" "ecs_cluster" {
   cluster_name = var.ecs_cluster_name
 }
 
+# Get existing rules to find available priority
+data "aws_lb_listener_rules" "existing_rules" {
+  count        = var.application_load_balancer != {} ? 1 : 0
+  listener_arn = var.application_load_balancer.listener_arn
+}
+
+locals {
+  existing_priorities = var.application_load_balancer != {} ? [
+    for rule in data.aws_lb_listener_rules.existing_rules[0].rules : try(tonumber(rule.priority), null)
+  ] : []
+  highest_priority = max(concat([0], compact(local.existing_priorities))) # Default to 0 if no rules, compact to remove nulls
+  next_priority    = local.highest_priority + 1
+}
+
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
   name              = "/ecs/${data.aws_ecs_cluster.ecs_cluster.cluster_name}/${var.ecs_service_name}"
   retention_in_days = var.log_retention_days
 }
 
-# Convert to for_each to create multiple target groups
 resource "aws_alb_target_group" "target_group" {
-  for_each    = { for tg in var.target_groups : tg.name => tg }
-  name        = each.key
-  port        = each.value.port
-  protocol    = each.value.protocol
+  count       = var.application_load_balancer != {} ? 1 : 0
+  name        = "${var.ecs_service_name}-tg"
+  port        = var.application_load_balancer.container_port
+  protocol    = "HTTP"
   vpc_id      = var.vpc_id
-  target_type = each.value.target_type
+  target_type = "ip"
 
   health_check {
-    healthy_threshold   = lookup(each.value, "health_check_threshold_healthy", var.health_check_threshold_healthy)
-    interval            = lookup(each.value, "health_check_interval_sec", var.health_check_interval_sec)
-    protocol            = lookup(each.value, "health_check_protocol", var.health_check_protocol)
-    matcher             = lookup(each.value, "health_check_protocol", var.health_check_protocol) == "HTTP" ? lookup(each.value, "health_check_matcher", var.health_check_matcher) : ""
-    timeout             = lookup(each.value, "health_check_timeout_sec", var.health_check_timeout_sec)
-    path                = lookup(each.value, "health_check_protocol", var.health_check_protocol) == "HTTP" ? lookup(each.value, "health_check_path", var.health_check_path) : null
-    unhealthy_threshold = lookup(each.value, "health_check_threshold_unhealthy", var.health_check_threshold_unhealthy)
+    healthy_threshold   = var.application_load_balancer.health_check_threshold_healthy
+    interval            = var.application_load_balancer.health_check_interval_sec
+    protocol            = "HTTP"
+    matcher             = var.application_load_balancer.health_check_matcher
+    timeout             = var.application_load_balancer.health_check_timeout_sec
+    path                = var.application_load_balancer.health_check_path
+    unhealthy_threshold = var.application_load_balancer.health_check_threshold_unhealthy
   }
 }
 
-# Modified rules routing to reference specific target groups
+# Fixed listener rule to use next_priority
 resource "aws_lb_listener_rule" "rule" {
-  for_each = { for idx, rule in var.rules_routing : idx => rule }
-
-  listener_arn = var.lb_listener_arn
-  priority     = each.value.priority
+  count        = var.application_load_balancer != {} ? 1 : 0
+  listener_arn = var.application_load_balancer.listener_arn
+  priority     = local.next_priority # Use the calculated next priority
 
   action {
     type             = "forward"
-    target_group_arn = aws_alb_target_group.target_group[each.value.target_group_name].arn
+    target_group_arn = aws_alb_target_group.target_group[0].arn
   }
 
   # Host header condition (if host is set)
   dynamic "condition" {
-    for_each = lookup(each.value, "host", null) != null ? [each.value.host] : []
+    for_each = length(var.application_load_balancer.host) > 0 ? [1] : []
     content {
       host_header {
-        values = [condition.value]
+        values = var.application_load_balancer.host
       }
     }
   }
 
-  # Path pattern condition (if path is set)
+  # Path pattern condition
   dynamic "condition" {
-    for_each = lookup(each.value, "path", null) != null ? [each.value.path] : []
+    for_each = length(var.application_load_balancer.path) > 0 ? [1] : []
     content {
       path_pattern {
-        values = [condition.value]
+        values = var.application_load_balancer.path
       }
     }
   }
 }
-
 
 resource "aws_ecs_task_definition" "task_definition" {
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
@@ -72,23 +83,38 @@ resource "aws_ecs_task_definition" "task_definition" {
       name      = var.container_name
       image     = var.container_image
       essential = true
+
       portMappings = [
         {
-          containerPort = var.container_port
-          hostPort      = var.container_port
+          containerPort = var.application_load_balancer != {} ? var.application_load_balancer.container_port : 80
+          hostPort      = var.application_load_balancer != {} ? var.application_load_balancer.container_port : 80
           protocol      = "tcp"
         }
       ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs_log_group.name
+          "awslogs-region"        = data.aws_region.current.name
+          "awslogs-stream-prefix" = var.ecs_service_name
+        }
+      }
     }
   ])
+
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = "ARM64"
   }
+
   lifecycle {
     ignore_changes = [container_definitions, family, memory, cpu, requires_compatibilities, network_mode, runtime_platform]
   }
 }
+
+# Add data source for current region
+data "aws_region" "current" {}
 
 resource "aws_ecs_service" "ecs_service" {
   name                               = var.ecs_service_name
@@ -103,18 +129,22 @@ resource "aws_ecs_service" "ecs_service" {
   scheduling_strategy    = "REPLICA"
   propagate_tags         = "NONE"
   platform_version       = "LATEST"
+
   deployment_controller {
     type = "ECS"
   }
+
   deployment_circuit_breaker {
     enable   = var.deployment_circuit_breaker
     rollback = var.deployment_rollback
   }
+
   network_configuration {
     security_groups  = var.security_group_ids
     subnets          = var.subnet_ids
     assign_public_ip = var.assign_public_ip
   }
+
   dynamic "alarms" {
     for_each = var.deployment_cloudwatch_alarm_enabled ? [1] : []
     content {
@@ -124,13 +154,13 @@ resource "aws_ecs_service" "ecs_service" {
     }
   }
 
-  # Modified to support multiple target groups
+  # Fixed load_balancer block
   dynamic "load_balancer" {
-    for_each = length(var.target_groups) > 0 ? var.service_target_groups : []
+    for_each = var.application_load_balancer != {} ? [1] : []
     content {
-      target_group_arn = aws_alb_target_group.target_group[load_balancer.value.target_group_name].arn
+      target_group_arn = aws_alb_target_group.target_group[0].arn
       container_name   = var.container_name
-      container_port   = lookup(load_balancer.value, "container_port", var.container_port)
+      container_port   = var.application_load_balancer.container_port
     }
   }
 

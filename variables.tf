@@ -11,55 +11,26 @@ variable "ecs_service_name" {
 variable "log_retention_days" {
   description = "Number of days to retain logs"
   type        = number
-  default     = 30
+  default     = 7
 }
 
 # Target group variables
-variable "target_groups" {
-  description = "List of target group configurations"
-  type = list(object({
-    name                             = string
-    port                             = number
-    protocol                         = string
-    target_type                      = string
+variable "application_load_balancer" {
+  description = "alb"
+  type = object({
+    container_port                   = number
+    listener_arn                     = string
+    host                             = string
+    path                             = optional(string, "/*")
     health_check_path                = optional(string, "/health")
     health_check_matcher             = optional(string, "200")
     health_check_interval_sec        = optional(number, 30)
     health_check_timeout_sec         = optional(number, 5)
     health_check_threshold_healthy   = optional(number, 3)
     health_check_threshold_unhealthy = optional(number, 3)
-    health_check_protocol            = optional(string, "HTTP")
-  }))
-  default = []
-}
 
-# Service target group mappings
-variable "service_target_groups" {
-  description = "Target groups to attach to the ECS service"
-  type = list(object({
-    target_group_name = string
-    container_port    = optional(number)
-  }))
-  default = []
-}
-
-# Host/Path-based routing
-variable "rules_routing" {
-  description = "List of host/path-based routing rules"
-  type = list(object({
-    priority          = number
-    host              = optional(string)
-    path              = optional(string)
-    target_group_name = string
-  }))
-  default = []
-}
-
-
-variable "lb_listener_arn" {
-  description = "ARN of the load balancer listener"
-  type        = string
-  default     = ""
+  })
+ default = {}
 }
 
 variable "vpc_id" {
@@ -90,12 +61,6 @@ variable "container_image" {
   description = "Docker image for the container"
   type        = string
   default     = "nginx:latest"
-}
-
-variable "container_port" {
-  description = "Port the container exposes"
-  type        = number
-  default     = 8080
 }
 
 # ECS service variables
@@ -263,47 +228,4 @@ variable "queue_name" {
   description = "Name of the SQS queue for scaling metrics"
   type        = string
   default     = ""
-}
-
-# Default health check variables (used as defaults for target groups)
-variable "health_check_path" {
-  description = "Path for health checks"
-  type        = string
-  default     = "/health"
-}
-
-variable "health_check_matcher" {
-  description = "HTTP response codes for health checks"
-  type        = string
-  default     = "200"
-}
-
-variable "health_check_interval_sec" {
-  description = "Interval between health checks in seconds"
-  type        = number
-  default     = 30
-}
-
-variable "health_check_timeout_sec" {
-  description = "Timeout for health checks in seconds"
-  type        = number
-  default     = 5
-}
-
-variable "health_check_threshold_healthy" {
-  description = "Number of consecutive successful health checks"
-  type        = number
-  default     = 3
-}
-
-variable "health_check_threshold_unhealthy" {
-  description = "Number of consecutive failed health checks"
-  type        = number
-  default     = 3
-}
-
-variable "health_check_protocol" {
-  description = "Protocol for health checks"
-  type        = string
-  default     = "HTTP"
 }
