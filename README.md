@@ -103,15 +103,17 @@ No modules.
 | [aws_ecs_task_definition.task_definition](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
 | [aws_lb_listener_rule.rule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_ecs_cluster.ecs_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecs_cluster) | data source |
+| [aws_lb_listener_rules.existing_rules](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb_listener_rules) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_application_load_balancer"></a> [application\_load\_balancer](#input\_application\_load\_balancer) | alb | <pre>object({<br/>    container_port                   = number<br/>    listener_arn                     = string<br/>    host                             = string<br/>    path                             = optional(string, "/*")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 5)<br/>    health_check_threshold_healthy   = optional(number, 3)<br/>    health_check_threshold_unhealthy = optional(number, 3)<br/><br/>  })</pre> | `{}` | no |
 | <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Assign public IP to ECS tasks | `bool` | `false` | no |
 | <a name="input_container_image"></a> [container\_image](#input\_container\_image) | Docker image for the container | `string` | `"nginx:latest"` | no |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | Name of the container | `string` | `"app"` | no |
-| <a name="input_container_port"></a> [container\_port](#input\_container\_port) | Port the container exposes | `number` | `8080` | no |
 | <a name="input_deployment_circuit_breaker"></a> [deployment\_circuit\_breaker](#input\_deployment\_circuit\_breaker) | Enable deployment circuit breaker | `bool` | `true` | no |
 | <a name="input_deployment_cloudwatch_alarm_enabled"></a> [deployment\_cloudwatch\_alarm\_enabled](#input\_deployment\_cloudwatch\_alarm\_enabled) | Enable CloudWatch alarms for deployment | `bool` | `false` | no |
 | <a name="input_deployment_cloudwatch_alarm_names"></a> [deployment\_cloudwatch\_alarm\_names](#input\_deployment\_cloudwatch\_alarm\_names) | Names of CloudWatch alarms for deployment | `list(string)` | `[]` | no |
@@ -126,21 +128,12 @@ No modules.
 | <a name="input_ecs_task_cpu"></a> [ecs\_task\_cpu](#input\_ecs\_task\_cpu) | CPU units for the ECS task | `number` | `256` | no |
 | <a name="input_ecs_task_memory"></a> [ecs\_task\_memory](#input\_ecs\_task\_memory) | Memory for the ECS task in MiB | `number` | `512` | no |
 | <a name="input_enable_autoscaling"></a> [enable\_autoscaling](#input\_enable\_autoscaling) | Enable autoscaling for the ECS service | `bool` | `false` | no |
-| <a name="input_health_check_interval_sec"></a> [health\_check\_interval\_sec](#input\_health\_check\_interval\_sec) | Interval between health checks in seconds | `number` | `30` | no |
-| <a name="input_health_check_matcher"></a> [health\_check\_matcher](#input\_health\_check\_matcher) | HTTP response codes for health checks | `string` | `"200"` | no |
-| <a name="input_health_check_path"></a> [health\_check\_path](#input\_health\_check\_path) | Path for health checks | `string` | `"/health"` | no |
-| <a name="input_health_check_protocol"></a> [health\_check\_protocol](#input\_health\_check\_protocol) | Protocol for health checks | `string` | `"HTTP"` | no |
-| <a name="input_health_check_threshold_healthy"></a> [health\_check\_threshold\_healthy](#input\_health\_check\_threshold\_healthy) | Number of consecutive successful health checks | `number` | `3` | no |
-| <a name="input_health_check_threshold_unhealthy"></a> [health\_check\_threshold\_unhealthy](#input\_health\_check\_threshold\_unhealthy) | Number of consecutive failed health checks | `number` | `3` | no |
-| <a name="input_health_check_timeout_sec"></a> [health\_check\_timeout\_sec](#input\_health\_check\_timeout\_sec) | Timeout for health checks in seconds | `number` | `5` | no |
-| <a name="input_lb_listener_arn"></a> [lb\_listener\_arn](#input\_lb\_listener\_arn) | ARN of the load balancer listener | `string` | `""` | no |
-| <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs | `number` | `30` | no |
+| <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs | `number` | `7` | no |
 | <a name="input_max_task_count"></a> [max\_task\_count](#input\_max\_task\_count) | Maximum number of tasks | `number` | `10` | no |
 | <a name="input_min_task_count"></a> [min\_task\_count](#input\_min\_task\_count) | Minimum number of tasks | `number` | `1` | no |
 | <a name="input_queue_name"></a> [queue\_name](#input\_queue\_name) | Name of the SQS queue for scaling metrics | `string` | `""` | no |
 | <a name="input_queue_scale_in_threshold"></a> [queue\_scale\_in\_threshold](#input\_queue\_scale\_in\_threshold) | Threshold for scaling in based on queue metrics | `number` | `1` | no |
 | <a name="input_queue_scale_out_threshold"></a> [queue\_scale\_out\_threshold](#input\_queue\_scale\_out\_threshold) | Threshold for scaling out based on queue metrics | `number` | `10` | no |
-| <a name="input_rules_routing"></a> [rules\_routing](#input\_rules\_routing) | List of host/path-based routing rules | <pre>list(object({<br/>    priority          = number<br/>    host              = optional(string)<br/>    path              = optional(string)<br/>    target_group_name = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_scale_by_alarm_in_adjustment"></a> [scale\_by\_alarm\_in\_adjustment](#input\_scale\_by\_alarm\_in\_adjustment) | Number of tasks to remove when scaling in | `number` | `-1` | no |
 | <a name="input_scale_by_alarm_out_adjustment"></a> [scale\_by\_alarm\_out\_adjustment](#input\_scale\_by\_alarm\_out\_adjustment) | Number of tasks to add when scaling out | `number` | `1` | no |
 | <a name="input_scale_cooldown_in_sec"></a> [scale\_cooldown\_in\_sec](#input\_scale\_cooldown\_in\_sec) | Cooldown period in seconds for scaling in | `number` | `300` | no |
@@ -151,9 +144,7 @@ No modules.
 | <a name="input_scale_on_memory_target"></a> [scale\_on\_memory\_target](#input\_scale\_on\_memory\_target) | Target memory usage percentage for scaling | `number` | `70` | no |
 | <a name="input_scale_on_memory_usage"></a> [scale\_on\_memory\_usage](#input\_scale\_on\_memory\_usage) | Enable scaling based on memory usage | `bool` | `false` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for the ECS tasks | `list(string)` | n/a | yes |
-| <a name="input_service_target_groups"></a> [service\_target\_groups](#input\_service\_target\_groups) | Target groups to attach to the ECS service | <pre>list(object({<br/>    target_group_name = string<br/>    container_port    = optional(number)<br/>  }))</pre> | `[]` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Subnet IDs for the ECS tasks | `list(string)` | n/a | yes |
-| <a name="input_target_groups"></a> [target\_groups](#input\_target\_groups) | List of target group configurations | <pre>list(object({<br/>    name                             = string<br/>    port                             = number<br/>    protocol                         = string<br/>    target_type                      = string<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 5)<br/>    health_check_threshold_healthy   = optional(number, 3)<br/>    health_check_threshold_unhealthy = optional(number, 3)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>  }))</pre> | `[]` | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC | `string` | n/a | yes |
 
 ## Outputs
