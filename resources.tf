@@ -7,6 +7,27 @@ resource "aws_cloudwatch_log_group" "ecs_log_group" {
   retention_in_days = var.log_retention_days
 }
 
+# Convert to for_each to create multiple target groups
+resource "aws_alb_target_group" "target_group" {
+  for_each    = { for tg in var.target_groups : tg.name => tg }
+  name        = each.key
+  port        = each.value.port
+  protocol    = each.value.protocol
+  vpc_id      = var.vpc_id
+  target_type = each.value.target_type
+
+  health_check {
+    healthy_threshold   = lookup(each.value, "health_check_threshold_healthy", var.health_check_threshold_healthy)
+    interval            = lookup(each.value, "health_check_interval_sec", var.health_check_interval_sec)
+    protocol            = lookup(each.value, "health_check_protocol", var.health_check_protocol)
+    matcher             = lookup(each.value, "health_check_protocol", var.health_check_protocol) == "HTTP" ? lookup(each.value, "health_check_matcher", var.health_check_matcher) : ""
+    timeout             = lookup(each.value, "health_check_timeout_sec", var.health_check_timeout_sec)
+    path                = lookup(each.value, "health_check_protocol", var.health_check_protocol) == "HTTP" ? lookup(each.value, "health_check_path", var.health_check_path) : null
+    unhealthy_threshold = lookup(each.value, "health_check_threshold_unhealthy", var.health_check_threshold_unhealthy)
+  }
+}
+
+# Modified host-based routing to reference specific target groups
 resource "aws_lb_listener_rule" "host_rule" {
   for_each = { for idx, rule in var.host_based_routing : idx => rule }
 
@@ -15,7 +36,7 @@ resource "aws_lb_listener_rule" "host_rule" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_alb_target_group.target_group[0].arn
+    target_group_arn = aws_alb_target_group.target_group[each.value.target_group_name].arn
   }
 
   condition {
@@ -24,6 +45,8 @@ resource "aws_lb_listener_rule" "host_rule" {
     }
   }
 }
+
+# Modified path-based routing to reference specific target groups
 resource "aws_lb_listener_rule" "path_rule" {
   for_each = { for idx, rule in var.path_based_routing : idx => rule }
 
@@ -32,32 +55,13 @@ resource "aws_lb_listener_rule" "path_rule" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_alb_target_group.target_group[0].arn
+    target_group_arn = aws_alb_target_group.target_group[each.value.target_group_name].arn
   }
 
   condition {
     path_pattern {
       values = [each.value.value]
     }
-  }
-}
-
-resource "aws_alb_target_group" "target_group" {
-  count       = var.enable_target_group ? 1 : 0
-  name        = var.target_group_name
-  port        = var.target_group_port
-  protocol    = var.target_group_protocol
-  vpc_id      = var.vpc_id
-  target_type = var.target_group_type
-
-  health_check {
-    healthy_threshold   = var.health_check_threshold_healthy
-    interval            = var.health_check_interval_sec
-    protocol            = var.health_check_protocol
-    matcher             = var.health_check_protocol == "HTTP" ? var.health_check_matcher : ""
-    timeout             = var.health_check_timeout_sec
-    path                = var.health_check_protocol == "HTTP" ? var.health_check_path : null
-    unhealthy_threshold = var.health_check_threshold_unhealthy
   }
 }
 
@@ -122,14 +126,15 @@ resource "aws_ecs_service" "ecs_service" {
       enable      = true
       rollback    = var.deployment_cloudwatch_alarm_rollback
     }
-
   }
+
+  # Modified to support multiple target groups
   dynamic "load_balancer" {
-    for_each = var.enable_target_group ? [1] : []
+    for_each = length(var.target_groups) > 0 ? var.service_target_groups : []
     content {
-      target_group_arn = aws_alb_target_group.target_group[0].arn
+      target_group_arn = aws_alb_target_group.target_group[load_balancer.value.target_group_name].arn
       container_name   = var.container_name
-      container_port   = var.container_port
+      container_port   = lookup(load_balancer.value, "container_port", var.container_port)
     }
   }
 
@@ -137,8 +142,7 @@ resource "aws_ecs_service" "ecs_service" {
     ignore_changes = [task_definition]
   }
 
-  depends_on = [aws_lb_listener_rule.host_rule]
-
+  depends_on = [aws_lb_listener_rule.host_rule, aws_lb_listener_rule.path_rule]
 }
 
 resource "aws_appautoscaling_target" "ecs_target" {
@@ -170,6 +174,7 @@ resource "aws_appautoscaling_policy" "scale_by_cpu_policy" {
   }
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
+
 resource "aws_appautoscaling_policy" "scale_by_memory_policy" {
   count              = var.scale_on_memory_usage ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-by-memory-policy"
@@ -210,6 +215,7 @@ resource "aws_appautoscaling_policy" "scale_out_by_alarm_policy" {
   }
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
+
 resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
   count              = var.scale_on_alarm_usage ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-in-by-alarm-policy"
@@ -224,7 +230,6 @@ resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
     metric_aggregation_type  = "Average"
     min_adjustment_magnitude = 0
 
-
     step_adjustment {
       metric_interval_upper_bound = 0
       scaling_adjustment          = var.scale_by_alarm_in_adjustment
@@ -233,7 +238,6 @@ resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
 
-###################
 resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
   count               = var.scale_on_alarm_usage ? 1 : 0
   alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/in-auto-scaling"
@@ -248,7 +252,6 @@ resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
     expression  = "(FILL(m1,0))/FILL(m2,1)"
     label       = "proportion"
     return_data = true
-
   }
   metric_query {
     id          = "m1"
@@ -297,7 +300,6 @@ resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
     expression  = "(FILL(m2,0))/FILL(m1,1)"
     label       = "proportion"
     return_data = true
-
   }
   metric_query {
     id          = "m1"
