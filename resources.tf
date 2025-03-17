@@ -2,40 +2,22 @@ data "aws_ecs_cluster" "ecs_cluster" {
   cluster_name = var.ecs_cluster_name
 }
 
-# # Get existing rules to find available priority
-# data "aws_lb_listener_rule" "existing_rules" {
-#   count        = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? 1 : 0
-#   listener_arn = var.application_load_balancer.listener_arn
-# }
-# locals {
-#   existing_priorities = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? [
-#     for rule in data.aws_lb_listener_rule.existing_rules : tonumber(rule.priority)
-#   ] : []
-
-#   max_priority  = length(local.existing_priorities) > 0 ? max(local.existing_priorities) : 0
-#   next_priority = local.max_priority + 1
-# }
-
 data "external" "listener_rules" {
   count = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? 1 : 0
 
   program = ["bash", "-c", <<EOT
     aws elbv2 describe-rules --listener-arn ${var.application_load_balancer.listener_arn} | \
-    jq '{priorities: [.Rules[].Priority | select(. != "default") | tonumber]}'
+    jq -c '{priorities: ([.Rules[].Priority | select(. != "default") | tostring] | join(","))}'
   EOT
   ]
 }
-
 locals {
-  existing_priorities = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? try(data.external.listener_rules[0].result.priorities, []) : []
+  existing_priorities_string = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? try(data.external.listener_rules[0].result.priorities, "") : ""
+  existing_priorities        = local.existing_priorities_string != "" ? split(",", local.existing_priorities_string) : []
 
-  max_priority  = length(local.existing_priorities) > 0 ? max(local.existing_priorities) : 0
+  max_priority  = length(local.existing_priorities) > 0 ? max(local.existing_priorities...) : 0
   next_priority = local.max_priority + 1
 }
-
-
-
-##################
 
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
   name              = "/ecs/${data.aws_ecs_cluster.ecs_cluster.cluster_name}/${var.ecs_service_name}"
@@ -77,7 +59,7 @@ resource "aws_lb_listener_rule" "rule" {
     for_each = length(var.application_load_balancer.host) > 0 ? [1] : []
     content {
       host_header {
-        values = var.application_load_balancer.host
+        values = [var.application_load_balancer.host]
       }
     }
   }
