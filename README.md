@@ -29,33 +29,19 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 ```python
 
 ################################################################################
-# AWS ECS-SERVICE
+# AWS ECS-SERVICE (without ALB)
 ################################################################################
 
-module "ecs_service" {
-  source = "delivops/ecs-service/aws"
-  #version            = "0.0.1"
+module "demo_ecs_service" {
+  source  = "delivops/ecs-service/aws"
+  version = "0.0.22"
 
-  cluster_name        = "my-ecs-cluster"
-  service_name        = "my-service"
-  vpc_id              = "vpc-xxxxxx"
-  subnets             = ["subnet-xxxxx", "subnet-yyyyy"]
-  security_groups     = ["sg-xxxxxx"]
-  execution_role_arn  = "arn:aws:iam::xxxxxxxxxxxx:role/ecsTaskExecutionRole"
+  ecs_cluster_name   = var.cluster_name
+  ecs_service_name   = "demo"
+  vpc_id             = module.vpc.vpc_id
+  subnet_ids         = module.vpc.private_subnets
+  security_group_ids = [aws_security_group.gatus_sg.id]
 
-  # Load Balancer Configuration
-  enable_target_group = true
-  target_group_name   = "my-target-group"
-  listener_arn        = "arn:aws:elasticloadbalancing:xxxxx"
-  host_rules = [
-  { value = "example.com", priority = 100 },
-  { value = "app.example.com", priority = 200 },
-  { value = "api.example.com", priority = 300 }
-  ]
-  # Auto Scaling Configuration
-  scaling_enabled     = true
-  min_capacity        = 1
-  max_capacity        = 5
 }
 ```
 

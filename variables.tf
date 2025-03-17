@@ -18,9 +18,9 @@ variable "log_retention_days" {
 variable "application_load_balancer" {
   description = "alb"
   type = object({
-    container_port                   = number
-    listener_arn                     = string
-    host                             = string
+    container_port                   = optional(number, 80)
+    listener_arn                     = optional(string, "")
+    host                             = optional(string, "")
     path                             = optional(string, "/*")
     health_check_path                = optional(string, "/health")
     health_check_matcher             = optional(string, "200")
@@ -30,7 +30,7 @@ variable "application_load_balancer" {
     health_check_threshold_unhealthy = optional(number, 3)
 
   })
- default = {}
+  default = {}
 }
 
 variable "vpc_id" {
