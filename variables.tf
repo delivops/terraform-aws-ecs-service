@@ -22,12 +22,14 @@ variable "application_load_balancer" {
     listener_arn                     = optional(string, "")
     host                             = optional(string, "")
     path                             = optional(string, "/*")
+    protocol                         = optional(string, "HTTP")
     health_check_path                = optional(string, "/health")
     health_check_matcher             = optional(string, "200")
     health_check_interval_sec        = optional(number, 30)
     health_check_timeout_sec         = optional(number, 5)
     health_check_threshold_healthy   = optional(number, 3)
     health_check_threshold_unhealthy = optional(number, 3)
+    health_check_protocol            = optional(string, "HTTP")
 
   })
   default = {}

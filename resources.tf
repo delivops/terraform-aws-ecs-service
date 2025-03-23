@@ -11,6 +11,7 @@ data "external" "listener_rules" {
   EOT
   ]
 }
+
 locals {
   existing_priorities_string = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? try(data.external.listener_rules[0].result.priorities, "") : ""
   existing_priorities        = local.existing_priorities_string != "" ? split(",", local.existing_priorities_string) : []
@@ -28,14 +29,14 @@ resource "aws_alb_target_group" "target_group" {
   count       = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? 1 : 0
   name        = "${var.ecs_service_name}-tg"
   port        = var.application_load_balancer.container_port
-  protocol    = "HTTP"
+  protocol    = var.application_load_balancer.protocol
   vpc_id      = var.vpc_id
   target_type = "ip"
 
   health_check {
     healthy_threshold   = var.application_load_balancer.health_check_threshold_healthy
     interval            = var.application_load_balancer.health_check_interval_sec
-    protocol            = "HTTP"
+    protocol            = var.application_load_balancer.health_check_protocol
     matcher             = var.application_load_balancer.health_check_matcher
     timeout             = var.application_load_balancer.health_check_timeout_sec
     path                = var.application_load_balancer.health_check_path
@@ -43,18 +44,18 @@ resource "aws_alb_target_group" "target_group" {
   }
 }
 
-# Fixed listener rule to use next_priority
 resource "aws_lb_listener_rule" "rule" {
   count        = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? 1 : 0
   listener_arn = var.application_load_balancer.listener_arn
-  priority     = local.next_priority # Use the calculated next priority
+  priority     = local.next_priority
 
   action {
     type             = "forward"
     target_group_arn = aws_alb_target_group.target_group[0].arn
   }
-
-  # Host header condition (if host is set)
+  lifecycle {
+    ignore_changes = all
+  }
   dynamic "condition" {
     for_each = length(var.application_load_balancer.host) > 0 ? [1] : []
     content {
@@ -64,7 +65,6 @@ resource "aws_lb_listener_rule" "rule" {
     }
   }
 
-  # Path pattern condition
   dynamic "condition" {
     for_each = length(var.application_load_balancer.path) > 0 ? [1] : []
     content {
@@ -94,29 +94,13 @@ resource "aws_ecs_task_definition" "task_definition" {
           protocol      = "tcp"
         }
       ]
-
-      # logConfiguration = {
-      #   logDriver = "awslogs"
-      #   options = {
-      #     "awslogs-group"         = aws_cloudwatch_log_group.ecs_log_group.name
-      #     "awslogs-region"        = data.aws_region.current.name
-      #     "awslogs-stream-prefix" = var.ecs_service_name
-      #   }
-      # }
     }
   ])
-
-  runtime_platform {
-    operating_system_family = "LINUX"
-    cpu_architecture        = "ARM64"
-  }
-
   lifecycle {
-    ignore_changes = [container_definitions, family, memory, cpu, requires_compatibilities, network_mode, runtime_platform]
+    ignore_changes = all
   }
 }
 
-# Add data source for current region
 data "aws_region" "current" {}
 
 resource "aws_ecs_service" "ecs_service" {
@@ -157,7 +141,6 @@ resource "aws_ecs_service" "ecs_service" {
     }
   }
 
-  # Fixed load_balancer block
   dynamic "load_balancer" {
     for_each = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? [1] : []
     content {
