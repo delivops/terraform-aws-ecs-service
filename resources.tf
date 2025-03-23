@@ -27,7 +27,7 @@ resource "aws_cloudwatch_log_group" "ecs_log_group" {
 
 resource "aws_alb_target_group" "target_group" {
   count       = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? 1 : 0
-  name        = "${var.ecs_service_name}-tg"
+  name        = replace("${var.ecs_service_name}-tg", "_", "-")
   port        = var.application_load_balancer.container_port
   protocol    = var.application_load_balancer.protocol
   vpc_id      = var.vpc_id
