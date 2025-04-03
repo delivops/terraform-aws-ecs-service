@@ -54,7 +54,7 @@ resource "aws_lb_listener_rule" "rule" {
     target_group_arn = aws_alb_target_group.target_group[0].arn
   }
   lifecycle {
-    ignore_changes = all
+    ignore_changes = [priority]
   }
   dynamic "condition" {
     for_each = length(var.application_load_balancer.host) > 0 ? [1] : []
