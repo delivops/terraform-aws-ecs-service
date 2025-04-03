@@ -73,6 +73,7 @@ resource "aws_lb_listener_rule" "rule" {
       }
     }
   }
+  depends_on = [aws_alb_target_group.target_group]
 }
 
 resource "aws_ecs_task_definition" "task_definition" {
