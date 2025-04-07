@@ -167,7 +167,10 @@ resource "aws_ecs_service" "ecs_service" {
   }
 
   lifecycle {
-    ignore_changes = var.enable_autoscaling ? [task_definition, platform_version, desired_count] : [task_definition, platform_version]
+    ignore_changes = concat(
+      ["task_definition", "platform_version"],
+      var.enable_autoscaling ? ["desired_count"] : []
+    )
   }
 
   depends_on = [aws_lb_listener_rule.rule]
