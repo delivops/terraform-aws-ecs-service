@@ -266,100 +266,54 @@ resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
 
-resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
-  count               = var.scale_on_alarm_usage ? 1 : 0
-  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/in-auto-scaling"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = 1
-  threshold           = var.queue_scale_in_threshold
-  datapoints_to_alarm = 1
-  alarm_description   = "Alarm when SQS backlog per instance"
-  alarm_actions       = [aws_appautoscaling_policy.scale_in_by_alarm_policy[0].arn]
-  treat_missing_data  = "breaching"
-  metric_query {
-    id          = "proportion"
-    expression  = "(FILL(m1,0))/FILL(m2,1)"
-    label       = "proportion"
-    return_data = true
-  }
-  metric_query {
-    id          = "m1"
-    label       = "Queue Size (Messages in SQS)"
-    return_data = false
-    metric {
-      namespace   = "AWS/SQS"
-      metric_name = "ApproximateNumberOfMessagesVisible"
-      period      = 60
-      stat        = "Sum"
-      dimensions = {
-        QueueName = var.queue_name
-      }
-    }
-  }
-
-  metric_query {
-    id          = "m2"
-    label       = "Number of InService Instances"
-    return_data = false
-    metric {
-      namespace   = "ECS/ContainerInsights"
-      metric_name = "DesiredTaskCount"
-      period      = 60
-      stat        = "Average"
-      dimensions = {
-        ServiceName = var.ecs_service_name
-        ClusterName = var.ecs_cluster_name
-      }
-    }
-  }
-  depends_on = [aws_ecs_service.ecs_service]
-}
-
+###############################################################################
+# SCALE OUT ALARM
+###############################################################################
 resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
   count               = var.scale_on_alarm_usage ? 1 : 0
   alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/out-auto-scaling"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
-  threshold           = var.queue_scale_out_threshold
-  alarm_description   = "Alarm when SQS backlog per instance"
+  threshold           = var.queue_scale_out_threshold  # e.g., 50
+  alarm_description   = "Scale OUT if SQS backlog exceeds threshold"
   datapoints_to_alarm = 1
   alarm_actions       = [aws_appautoscaling_policy.scale_out_by_alarm_policy[0].arn]
   treat_missing_data  = "breaching"
-  metric_query {
-    id          = "proportion"
-    expression  = "(FILL(m1,0))/FILL(m2,1)"
-    label       = "proportion"
-    return_data = true
-  }
-  metric_query {
-    id          = "m1"
-    label       = "Queue Size (Messages in SQS)"
-    return_data = false
-    metric {
-      namespace   = "AWS/SQS"
-      metric_name = "ApproximateNumberOfMessagesVisible"
-      period      = 60
-      stat        = "Sum"
-      dimensions = {
-        QueueName = var.queue_name
-      }
-    }
+
+  # Remove the old metric_query blocks. Instead, do a direct reference to SQS backlog:
+  namespace   = "AWS/SQS"
+  metric_name = "ApproximateNumberOfMessagesVisible"
+  period      = 60
+  statistic   = "Average"
+  dimensions = {
+    QueueName = var.queue_name
   }
 
-  metric_query {
-    id          = "m2"
-    label       = "Number of InService Instances"
-    return_data = false
-    metric {
-      namespace   = "ECS/ContainerInsights"
-      metric_name = "DesiredTaskCount"
-      period      = 60
-      stat        = "Average"
-      dimensions = {
-        ServiceName = var.ecs_service_name
-        ClusterName = var.ecs_cluster_name
-      }
-    }
+  depends_on = [aws_ecs_service.ecs_service]
+}
+
+###############################################################################
+# SCALE IN ALARM
+###############################################################################
+resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
+  count               = var.scale_on_alarm_usage ? 1 : 0
+  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/in-auto-scaling"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 1
+  threshold           = var.queue_scale_in_threshold  # e.g., 10
+  alarm_description   = "Scale IN if SQS backlog drops below threshold"
+  datapoints_to_alarm = 1
+  alarm_actions       = [aws_appautoscaling_policy.scale_in_by_alarm_policy[0].arn]
+  treat_missing_data  = "breaching"
+
+  # Again, just reference the SQS metric directly
+  namespace   = "AWS/SQS"
+  metric_name = "ApproximateNumberOfMessagesVisible"
+  period      = 60
+  statistic   = "Average"
+  dimensions = {
+    QueueName = var.queue_name
   }
+
   depends_on = [aws_ecs_service.ecs_service]
 }
