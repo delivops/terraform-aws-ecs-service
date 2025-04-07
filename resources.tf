@@ -110,7 +110,7 @@ resource "aws_ecs_service" "ecs_service" {
   name                               = var.ecs_service_name
   cluster                            = data.aws_ecs_cluster.ecs_cluster.id
   task_definition                    = aws_ecs_task_definition.task_definition.arn
-  desired_count                      = var.enable_autoscaling ? null : var.ecs_task_count
+  desired_count                      = var.ecs_task_count
   deployment_minimum_healthy_percent = var.deployment_min_healthy
   deployment_maximum_percent         = var.deployment_max_percent
 
@@ -167,7 +167,7 @@ resource "aws_ecs_service" "ecs_service" {
   }
 
   lifecycle {
-    ignore_changes = [task_definition, platform_version]
+    ignore_changes = var.enable_autoscaling ? [task_definition, platform_version, desired_count] : [task_definition, platform_version]
   }
 
   depends_on = [aws_lb_listener_rule.rule]
