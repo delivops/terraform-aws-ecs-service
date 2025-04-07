@@ -34,6 +34,10 @@ variable "application_load_balancer" {
   })
   default = {}
 }
+variable "service_connect_enabled" {
+  description = "bool for service connect"
+  default = false
+}
 
 variable "vpc_id" {
   description = "ID of the VPC"

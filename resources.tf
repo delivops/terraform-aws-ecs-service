@@ -93,6 +93,8 @@ resource "aws_ecs_task_definition" "task_definition" {
           containerPort = var.application_load_balancer != {} ? var.application_load_balancer.container_port : 80
           hostPort      = var.application_load_balancer != {} ? var.application_load_balancer.container_port : 80
           protocol      = "tcp"
+          name          = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
+          appProtocol   = "http"
         }
       ]
     }
@@ -149,6 +151,19 @@ resource "aws_ecs_service" "ecs_service" {
       container_name   = var.container_name
       container_port   = var.application_load_balancer.container_port
     }
+  }
+
+
+  dynamic "service_connect_configuration" {
+    for_each = var.service_connect_enabled ? [1] : []
+    content {
+      namespace = var.ecs_cluster_name
+      enabled   = true
+      service {
+        port_name = "${var.ecs_cluster_name}_${var.ecs_service_name}"
+      }
+    }
+
   }
 
   lifecycle {
