@@ -325,7 +325,7 @@ resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
   treat_missing_data  = "breaching"
   metric_query {
     id          = "proportion"
-    expression  = "(FILL(m2,0))/FILL(m1,1)"
+    expression  = "(FILL(m1,0))/FILL(m2,1)"
     label       = "proportion"
     return_data = true
   }
