@@ -110,7 +110,7 @@ resource "aws_ecs_service" "ecs_service" {
   name                               = var.ecs_service_name
   cluster                            = data.aws_ecs_cluster.ecs_cluster.id
   task_definition                    = aws_ecs_task_definition.task_definition.arn
-  desired_count                      = var.ecs_task_count
+  desired_count                      = var.enable_autoscaling ? null : var.ecs_task_count
   deployment_minimum_healthy_percent = var.deployment_min_healthy
   deployment_maximum_percent         = var.deployment_max_percent
 
@@ -272,6 +272,7 @@ resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 1
   threshold           = var.queue_scale_in_threshold
+  datapoints_to_alarm = 1
   alarm_description   = "Alarm when SQS backlog per instance"
   alarm_actions       = [aws_appautoscaling_policy.scale_in_by_alarm_policy[0].arn]
   treat_missing_data  = "breaching"
@@ -321,6 +322,7 @@ resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
   evaluation_periods  = 1
   threshold           = var.queue_scale_out_threshold
   alarm_description   = "Alarm when SQS backlog per instance"
+  datapoints_to_alarm = 1
   alarm_actions       = [aws_appautoscaling_policy.scale_out_by_alarm_policy[0].arn]
   treat_missing_data  = "breaching"
   metric_query {
