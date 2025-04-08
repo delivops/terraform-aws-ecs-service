@@ -346,7 +346,7 @@ resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
 
     step_adjustment {
       metric_interval_upper_bound = 0
-      scaling_adjustment          = var.sqs_auto_scaling.scale_in_step
+      scaling_adjustment          =  -1 * var.sqs_auto_scaling.scale_in_step
     }
   }
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
