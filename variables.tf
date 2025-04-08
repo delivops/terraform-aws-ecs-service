@@ -153,6 +153,7 @@ variable "cpu_auto_scaling" {
   description = "value for auto scaling"
   default     = {}
   type = object({
+    enabled            = optional(bool, false)
     min_replicas       = optional(number, 1)
     max_replicas       = optional(number, 1)
     scale_in_cooldown  = optional(number, 300)
@@ -165,6 +166,7 @@ variable "memory_auto_scaling" {
   description = "value for auto scaling"
   default     = {}
   type = object({
+    enabled            = optional(bool, false)
     min_replicas       = optional(number, 1)
     max_replicas       = optional(number, 1)
     scale_in_cooldown  = optional(number, 300)
@@ -177,6 +179,7 @@ variable "sqs_auto_scaling" {
   description = "value for auto scaling"
   default     = {}
   type = object({
+    enabled             = optional(bool, false)
     min_replicas        = optional(number, 1)
     max_replicas        = optional(number, 1)
     queue_name          = optional(string, "")

@@ -185,7 +185,7 @@ resource "aws_ecs_service" "ecs_service" {
 }
 
 resource "aws_appautoscaling_target" "ecs_target" {
-  count = var.cpu_auto_scaling != {} || var.memory_auto_scaling != {} || var.sqs_auto_scaling != {} ? 1 : 0
+  count = var.cpu_auto_scaling.enabled || var.memory_auto_scaling.enabled || var.sqs_auto_scaling.enabled ? 1 : 0
   min_capacity = max(
     try(var.cpu_auto_scaling.min_replicas, 1),
     try(var.memory_auto_scaling.min_replicas, 1),
@@ -203,7 +203,7 @@ resource "aws_appautoscaling_target" "ecs_target" {
 }
 
 resource "aws_appautoscaling_policy" "scale_by_cpu_policy" {
-  count              = var.cpu_auto_scaling != {} ? 1 : 0
+  count              = var.cpu_auto_scaling.enabled ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-by-cpu-policy"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
@@ -223,7 +223,7 @@ resource "aws_appautoscaling_policy" "scale_by_cpu_policy" {
 }
 
 resource "aws_appautoscaling_policy" "scale_by_memory_policy" {
-  count              = var.memory_auto_scaling != {} ? 1 : 0
+  count              = var.memory_auto_scaling.enabled ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-by-memory-policy"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
@@ -243,7 +243,7 @@ resource "aws_appautoscaling_policy" "scale_by_memory_policy" {
 }
 
 resource "aws_appautoscaling_policy" "scale_out_by_alarm_policy" {
-  count              = var.sqs_auto_scaling != {} ? 1 : 0
+  count              = var.sqs_auto_scaling.enabled ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-out-by-alarm-policy"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
@@ -264,7 +264,7 @@ resource "aws_appautoscaling_policy" "scale_out_by_alarm_policy" {
 }
 
 resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
-  count              = var.sqs_auto_scaling != {} ? 1 : 0
+  count              = var.sqs_auto_scaling.enabled ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-in-by-alarm-policy"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
@@ -289,7 +289,7 @@ resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
 # SCALE OUT ALARM
 ###############################################################################
 resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
-  count               = var.sqs_auto_scaling != {} ? 1 : 0
+  count               = var.sqs_auto_scaling.enabled ? 1 : 0
   alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/out-auto-scaling"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
@@ -314,7 +314,7 @@ resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
 # SCALE IN ALARM
 ###############################################################################
 resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
-  count               = var.sqs_auto_scaling != {} ? 1 : 0
+  count               = var.sqs_auto_scaling.enabled ? 1 : 0
   alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/in-auto-scaling"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 1
