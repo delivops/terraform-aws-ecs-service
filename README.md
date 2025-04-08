@@ -125,10 +125,12 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_additional_ports"></a> [additional\_ports](#input\_additional\_ports) | value for additional ports | <pre>map(object({<br/>    name = string<br/>    port = number<br/>  }))</pre> | `{}` | no |
 | <a name="input_application_load_balancer"></a> [application\_load\_balancer](#input\_application\_load\_balancer) | alb | <pre>object({<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 5)<br/>    health_check_threshold_healthy   = optional(number, 3)<br/>    health_check_threshold_unhealthy = optional(number, 3)<br/>    health_check_protocol            = optional(string, "HTTP")<br/><br/>  })</pre> | `{}` | no |
 | <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Assign public IP to ECS tasks | `bool` | `false` | no |
 | <a name="input_container_image"></a> [container\_image](#input\_container\_image) | Docker image for the container | `string` | `"nginx:latest"` | no |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | Name of the container | `string` | `"app"` | no |
+| <a name="input_cpu_auto_scaling"></a> [cpu\_auto\_scaling](#input\_cpu\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    min_replicas = optional(number, 1)<br/>    max_replicas = optional(number, 1)<br/>    target       = optional(number, 70)<br/><br/>  })</pre> | `{}` | no |
 | <a name="input_deployment_circuit_breaker"></a> [deployment\_circuit\_breaker](#input\_deployment\_circuit\_breaker) | Enable deployment circuit breaker | `bool` | `true` | no |
 | <a name="input_deployment_cloudwatch_alarm_enabled"></a> [deployment\_cloudwatch\_alarm\_enabled](#input\_deployment\_cloudwatch\_alarm\_enabled) | Enable CloudWatch alarms for deployment | `bool` | `false` | no |
 | <a name="input_deployment_cloudwatch_alarm_names"></a> [deployment\_cloudwatch\_alarm\_names](#input\_deployment\_cloudwatch\_alarm\_names) | Names of CloudWatch alarms for deployment | `list(string)` | `[]` | no |
@@ -142,24 +144,11 @@ No modules.
 | <a name="input_ecs_task_count"></a> [ecs\_task\_count](#input\_ecs\_task\_count) | Desired number of tasks | `number` | `1` | no |
 | <a name="input_ecs_task_cpu"></a> [ecs\_task\_cpu](#input\_ecs\_task\_cpu) | CPU units for the ECS task | `number` | `256` | no |
 | <a name="input_ecs_task_memory"></a> [ecs\_task\_memory](#input\_ecs\_task\_memory) | Memory for the ECS task in MiB | `number` | `512` | no |
-| <a name="input_enable_autoscaling"></a> [enable\_autoscaling](#input\_enable\_autoscaling) | Enable autoscaling for the ECS service | `bool` | `false` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs | `number` | `7` | no |
-| <a name="input_max_task_count"></a> [max\_task\_count](#input\_max\_task\_count) | Maximum number of tasks | `number` | `10` | no |
-| <a name="input_min_task_count"></a> [min\_task\_count](#input\_min\_task\_count) | Minimum number of tasks | `number` | `1` | no |
-| <a name="input_queue_name"></a> [queue\_name](#input\_queue\_name) | Name of the SQS queue for scaling metrics | `string` | `""` | no |
-| <a name="input_queue_scale_in_threshold"></a> [queue\_scale\_in\_threshold](#input\_queue\_scale\_in\_threshold) | Threshold for scaling in based on queue metrics | `number` | `1` | no |
-| <a name="input_queue_scale_out_threshold"></a> [queue\_scale\_out\_threshold](#input\_queue\_scale\_out\_threshold) | Threshold for scaling out based on queue metrics | `number` | `10` | no |
-| <a name="input_scale_by_alarm_in_adjustment"></a> [scale\_by\_alarm\_in\_adjustment](#input\_scale\_by\_alarm\_in\_adjustment) | Number of tasks to remove when scaling in | `number` | `-1` | no |
-| <a name="input_scale_by_alarm_out_adjustment"></a> [scale\_by\_alarm\_out\_adjustment](#input\_scale\_by\_alarm\_out\_adjustment) | Number of tasks to add when scaling out | `number` | `1` | no |
-| <a name="input_scale_cooldown_in_sec"></a> [scale\_cooldown\_in\_sec](#input\_scale\_cooldown\_in\_sec) | Cooldown period in seconds for scaling in | `number` | `300` | no |
-| <a name="input_scale_cooldown_out_sec"></a> [scale\_cooldown\_out\_sec](#input\_scale\_cooldown\_out\_sec) | Cooldown period in seconds for scaling out | `number` | `300` | no |
-| <a name="input_scale_on_alarm_usage"></a> [scale\_on\_alarm\_usage](#input\_scale\_on\_alarm\_usage) | Enable scaling based on CloudWatch alarms | `bool` | `false` | no |
-| <a name="input_scale_on_cpu_target"></a> [scale\_on\_cpu\_target](#input\_scale\_on\_cpu\_target) | Target CPU usage percentage for scaling | `number` | `70` | no |
-| <a name="input_scale_on_cpu_usage"></a> [scale\_on\_cpu\_usage](#input\_scale\_on\_cpu\_usage) | Enable scaling based on CPU usage | `bool` | `false` | no |
-| <a name="input_scale_on_memory_target"></a> [scale\_on\_memory\_target](#input\_scale\_on\_memory\_target) | Target memory usage percentage for scaling | `number` | `70` | no |
-| <a name="input_scale_on_memory_usage"></a> [scale\_on\_memory\_usage](#input\_scale\_on\_memory\_usage) | Enable scaling based on memory usage | `bool` | `false` | no |
+| <a name="input_memory_auto_scaling"></a> [memory\_auto\_scaling](#input\_memory\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    min_replicas = optional(number, 1)<br/>    max_replicas = optional(number, 1)<br/>    target       = optional(number, 70)<br/><br/>  })</pre> | `{}` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for the ECS tasks | `list(string)` | n/a | yes |
 | <a name="input_service_connect_enabled"></a> [service\_connect\_enabled](#input\_service\_connect\_enabled) | bool for service connect | `bool` | `false` | no |
+| <a name="input_sqs_auto_scaling"></a> [sqs\_auto\_scaling](#input\_sqs\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    min_replicas        = optional(number, 1)<br/>    max_replicas        = optional(number, 1)<br/>    queue_name          = string<br/>    scale_in_step       = optional(number, 1)<br/>    scale_out_step      = optional(number, 1)<br/>    scale_in_cooldown   = optional(number, 300)<br/>    scale_out_cooldown  = optional(number, 300)<br/>    scale_in_threshold  = optional(number, 10)<br/>    scale_out_threshold = optional(number, 100)<br/>  })</pre> | `{}` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Subnet IDs for the ECS tasks | `list(string)` | n/a | yes |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC | `string` | n/a | yes |
 
