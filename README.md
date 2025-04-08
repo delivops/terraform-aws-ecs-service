@@ -94,8 +94,8 @@ No requirements.
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | n/a |
-| <a name="provider_external"></a> [external](#provider\_external) | n/a |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.94.1 |
+| <a name="provider_external"></a> [external](#provider\_external) | 2.3.4 |
 
 ## Modules
 
@@ -130,7 +130,7 @@ No modules.
 | <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Assign public IP to ECS tasks | `bool` | `false` | no |
 | <a name="input_container_image"></a> [container\_image](#input\_container\_image) | Docker image for the container | `string` | `"nginx:latest"` | no |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | Name of the container | `string` | `"app"` | no |
-| <a name="input_cpu_auto_scaling"></a> [cpu\_auto\_scaling](#input\_cpu\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    min_replicas        = optional(number, 1)<br/>    max_replicas        = optional(number, 1)<br/>    scale_in_cooldown   = optional(number, 300)<br/>    scale_out_cooldown  = optional(number, 300)<br/>    target_value        = optional(number, 70)<br/>  })</pre> | `{}` | no |
+| <a name="input_cpu_auto_scaling"></a> [cpu\_auto\_scaling](#input\_cpu\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    min_replicas       = optional(number, 1)<br/>    max_replicas       = optional(number, 1)<br/>    scale_in_cooldown  = optional(number, 300)<br/>    scale_out_cooldown = optional(number, 300)<br/>    target_value       = optional(number, 70)<br/>  })</pre> | `{}` | no |
 | <a name="input_deployment_circuit_breaker"></a> [deployment\_circuit\_breaker](#input\_deployment\_circuit\_breaker) | Enable deployment circuit breaker | `bool` | `true` | no |
 | <a name="input_deployment_cloudwatch_alarm_enabled"></a> [deployment\_cloudwatch\_alarm\_enabled](#input\_deployment\_cloudwatch\_alarm\_enabled) | Enable CloudWatch alarms for deployment | `bool` | `false` | no |
 | <a name="input_deployment_cloudwatch_alarm_names"></a> [deployment\_cloudwatch\_alarm\_names](#input\_deployment\_cloudwatch\_alarm\_names) | Names of CloudWatch alarms for deployment | `list(string)` | `[]` | no |
@@ -145,7 +145,7 @@ No modules.
 | <a name="input_ecs_task_cpu"></a> [ecs\_task\_cpu](#input\_ecs\_task\_cpu) | CPU units for the ECS task | `number` | `256` | no |
 | <a name="input_ecs_task_memory"></a> [ecs\_task\_memory](#input\_ecs\_task\_memory) | Memory for the ECS task in MiB | `number` | `512` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs | `number` | `7` | no |
-| <a name="input_memory_auto_scaling"></a> [memory\_auto\_scaling](#input\_memory\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    min_replicas        = optional(number, 1)<br/>    max_replicas        = optional(number, 1)<br/>    scale_in_cooldown   = optional(number, 300)<br/>    scale_out_cooldown  = optional(number, 300)<br/>    target_value        = optional(number, 70)<br/><br/>  })</pre> | `{}` | no |
+| <a name="input_memory_auto_scaling"></a> [memory\_auto\_scaling](#input\_memory\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    min_replicas       = optional(number, 1)<br/>    max_replicas       = optional(number, 1)<br/>    scale_in_cooldown  = optional(number, 300)<br/>    scale_out_cooldown = optional(number, 300)<br/>    target_value       = optional(number, 70)<br/><br/>  })</pre> | `{}` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for the ECS tasks | `list(string)` | n/a | yes |
 | <a name="input_service_connect_enabled"></a> [service\_connect\_enabled](#input\_service\_connect\_enabled) | bool for service connect | `bool` | `false` | no |
 | <a name="input_sqs_auto_scaling"></a> [sqs\_auto\_scaling](#input\_sqs\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    min_replicas        = optional(number, 1)<br/>    max_replicas        = optional(number, 1)<br/>    queue_name          = optional(string, "")<br/>    scale_in_step       = optional(number, 1)<br/>    scale_out_step      = optional(number, 1)<br/>    scale_in_cooldown   = optional(number, 300)<br/>    scale_out_cooldown  = optional(number, 300)<br/>    scale_in_threshold  = optional(number, 10)<br/>    scale_out_threshold = optional(number, 100)<br/>  })</pre> | `{}` | no |
