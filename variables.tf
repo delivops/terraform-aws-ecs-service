@@ -153,10 +153,11 @@ variable "cpu_auto_scaling" {
   description = "value for auto scaling"
   default     = {}
   type = object({
-    min_replicas = optional(number, 1)
-    max_replicas = optional(number, 1)
-    target       = optional(number, 70)
-
+    min_replicas        = optional(number, 1)
+    max_replicas        = optional(number, 1)
+    scale_in_cooldown   = optional(number, 300)
+    scale_out_cooldown  = optional(number, 300)
+    target_value        = optional(number, 70)
   })
 }
 
@@ -164,9 +165,11 @@ variable "memory_auto_scaling" {
   description = "value for auto scaling"
   default     = {}
   type = object({
-    min_replicas = optional(number, 1)
-    max_replicas = optional(number, 1)
-    target       = optional(number, 70)
+    min_replicas        = optional(number, 1)
+    max_replicas        = optional(number, 1)
+    scale_in_cooldown   = optional(number, 300)
+    scale_out_cooldown  = optional(number, 300)
+    target_value        = optional(number, 70)
 
   })
 }
