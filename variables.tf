@@ -34,9 +34,18 @@ variable "application_load_balancer" {
   })
   default = {}
 }
+
+variable "additional_ports" {
+  description = "value for additional ports"
+  default     = {}
+  type = map(object({
+    name = string
+    port = number
+  }))
+}
 variable "service_connect_enabled" {
   description = "bool for service connect"
-  default = false
+  default     = false
 }
 
 variable "vpc_id" {
@@ -140,98 +149,41 @@ variable "deployment_cloudwatch_alarm_rollback" {
   type        = bool
   default     = true
 }
+variable "cpu_auto_scaling" {
+  description = "value for auto scaling"
+  default     = {}
+  type = object({
+    min_replicas = optional(number, 1)
+    max_replicas = optional(number, 1)
+    target       = optional(number, 70)
 
-# Autoscaling variables
-variable "enable_autoscaling" {
-  description = "Enable autoscaling for the ECS service"
-  type        = bool
-  default     = false
+  })
 }
 
-variable "min_task_count" {
-  description = "Minimum number of tasks"
-  type        = number
-  default     = 1
+variable "memory_auto_scaling" {
+  description = "value for auto scaling"
+  default     = {}
+  type = object({
+    min_replicas = optional(number, 1)
+    max_replicas = optional(number, 1)
+    target       = optional(number, 70)
+
+  })
+}
+variable "sqs_auto_scaling" {
+  description = "value for auto scaling"
+  default     = {}
+  type = object({
+    min_replicas        = optional(number, 1)
+    max_replicas        = optional(number, 1)
+    queue_name          = string
+    scale_in_step       = optional(number, 1)
+    scale_out_step      = optional(number, 1)
+    scale_in_cooldown   = optional(number, 300)
+    scale_out_cooldown  = optional(number, 300)
+    scale_in_threshold  = optional(number, 10)
+    scale_out_threshold = optional(number, 100)
+  })
+
 }
 
-variable "max_task_count" {
-  description = "Maximum number of tasks"
-  type        = number
-  default     = 10
-}
-
-# CPU-based scaling
-variable "scale_on_cpu_usage" {
-  description = "Enable scaling based on CPU usage"
-  type        = bool
-  default     = false
-}
-
-variable "scale_on_cpu_target" {
-  description = "Target CPU usage percentage for scaling"
-  type        = number
-  default     = 70
-}
-
-# Memory-based scaling
-variable "scale_on_memory_usage" {
-  description = "Enable scaling based on memory usage"
-  type        = bool
-  default     = false
-}
-
-variable "scale_on_memory_target" {
-  description = "Target memory usage percentage for scaling"
-  type        = number
-  default     = 70
-}
-
-# Alarm-based scaling
-variable "scale_on_alarm_usage" {
-  description = "Enable scaling based on CloudWatch alarms"
-  type        = bool
-  default     = false
-}
-
-variable "scale_by_alarm_out_adjustment" {
-  description = "Number of tasks to add when scaling out"
-  type        = number
-  default     = 1
-}
-
-variable "scale_by_alarm_in_adjustment" {
-  description = "Number of tasks to remove when scaling in"
-  type        = number
-  default     = -1
-}
-
-variable "scale_cooldown_in_sec" {
-  description = "Cooldown period in seconds for scaling in"
-  type        = number
-  default     = 300
-}
-
-variable "scale_cooldown_out_sec" {
-  description = "Cooldown period in seconds for scaling out"
-  type        = number
-  default     = 300
-}
-
-# Queue-based scaling thresholds
-variable "queue_scale_in_threshold" {
-  description = "Threshold for scaling in based on queue metrics"
-  type        = number
-  default     = 1
-}
-
-variable "queue_scale_out_threshold" {
-  description = "Threshold for scaling out based on queue metrics"
-  type        = number
-  default     = 10
-}
-
-variable "queue_name" {
-  description = "Name of the SQS queue for scaling metrics"
-  type        = string
-  default     = ""
-}
