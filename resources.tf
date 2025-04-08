@@ -1,25 +1,3 @@
-data "aws_ecs_cluster" "ecs_cluster" {
-  cluster_name = var.ecs_cluster_name
-}
-
-data "external" "listener_rules" {
-  count = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? 1 : 0
-
-  program = ["bash", "-c", <<EOT
-    aws elbv2 describe-rules --listener-arn ${var.application_load_balancer.listener_arn} | \
-    jq -c '{priorities: ([.Rules[].Priority | select(. != "default") | tostring] | join(","))}'
-  EOT
-  ]
-}
-
-locals {
-  existing_priorities_string = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? try(data.external.listener_rules[0].result.priorities, "") : ""
-  existing_priorities        = local.existing_priorities_string != "" ? split(",", local.existing_priorities_string) : []
-
-  max_priority  = length(local.existing_priorities) > 0 ? max(local.existing_priorities...) : 0
-  next_priority = local.max_priority + 1
-}
-
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
   name              = "/ecs/${data.aws_ecs_cluster.ecs_cluster.cluster_name}/${var.ecs_service_name}"
   retention_in_days = var.log_retention_days
@@ -75,6 +53,7 @@ resource "aws_lb_listener_rule" "rule" {
   }
   depends_on = [aws_alb_target_group.target_group]
 }
+
 resource "aws_ecs_task_definition" "task_definition" {
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
   network_mode             = "awsvpc"
@@ -111,53 +90,9 @@ resource "aws_ecs_task_definition" "task_definition" {
   ])
 
   lifecycle {
-    ignore_changes = [container_definitions]
+    ignore_changes = [all]
   }
 }
-
-# resource "aws_ecs_task_definition" "task_definition" {
-#   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
-#   network_mode             = "awsvpc"
-#   requires_compatibilities = [var.ecs_launch_type]
-#   cpu                      = var.ecs_task_cpu
-#   memory                   = var.ecs_task_memory
-
-#   container_definitions = jsonencode([
-#     {
-#       name      = var.container_name
-#       image     = var.container_image
-#       essential = true
-#       portMappings = flatten([
-#         # Add the default load balancer port mapping if it's provided
-#         var.application_load_balancer != null ? [
-#           {
-#             name          = "default"
-#             containerPort = var.application_load_balancer.container_port
-#             hostPort      = var.application_load_balancer.container_port
-#             protocol      = "tcp"
-#             appProtocol   = "http"
-#           }
-#         ] : [],
-#         # Add additional ports
-#         [
-#           for port in var.additional_ports : {
-#             name          = port.value.name
-#             containerPort = port.value.port
-#             hostPort      = port.value.port
-#             protocol      = "tcp"
-#             appProtocol   = "http"
-#           }
-#         ]
-#       ])
-#     }
-#   ])
-
-#   lifecycle {
-#     ignore_changes = [container_definitions]
-#   }
-# }
-
-data "aws_region" "current" {}
 
 resource "aws_ecs_service" "ecs_service" {
   name                               = var.ecs_service_name
@@ -206,8 +141,6 @@ resource "aws_ecs_service" "ecs_service" {
     }
   }
 
-
-
   # Dynamic block for service connect configuration
   dynamic "service_connect_configuration" {
     for_each = var.service_connect_enabled ? [1] : []
@@ -252,7 +185,7 @@ resource "aws_ecs_service" "ecs_service" {
 }
 
 resource "aws_appautoscaling_target" "ecs_target" {
-  count = length(var.cpu_auto_scaling) > 0 || length(var.memory_auto_scaling) > 0 || length(var.sqs_auto_scaling) > 0 ? 1 : 0
+  count = var.cpu_auto_scaling != {} || var.memory_auto_scaling != {} || var.sqs_auto_scaling != {} ? 1 : 0
   min_capacity = max(
     try(var.cpu_auto_scaling.min_replicas, 1),
     try(var.memory_auto_scaling.min_replicas, 1),
@@ -270,7 +203,7 @@ resource "aws_appautoscaling_target" "ecs_target" {
 }
 
 resource "aws_appautoscaling_policy" "scale_by_cpu_policy" {
-  count              = length(var.cpu_auto_scaling) > 0 ? 1 : 0
+  count              = var.cpu_auto_scaling != {} ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-by-cpu-policy"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
@@ -290,7 +223,7 @@ resource "aws_appautoscaling_policy" "scale_by_cpu_policy" {
 }
 
 resource "aws_appautoscaling_policy" "scale_by_memory_policy" {
-  count              = length(var.memory_auto_scaling) > 0 ? 1 : 0
+  count              = var.memory_auto_scaling != {} ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-by-memory-policy"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
@@ -310,7 +243,7 @@ resource "aws_appautoscaling_policy" "scale_by_memory_policy" {
 }
 
 resource "aws_appautoscaling_policy" "scale_out_by_alarm_policy" {
-  count              = length(var.sqs_auto_scaling) > 0 ? 1 : 0
+  count              = var.sqs_auto_scaling != {} ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-out-by-alarm-policy"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
@@ -331,7 +264,7 @@ resource "aws_appautoscaling_policy" "scale_out_by_alarm_policy" {
 }
 
 resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
-  count              = length(var.sqs_auto_scaling) > 0 ? 1 : 0
+  count              = var.sqs_auto_scaling != {} ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-in-by-alarm-policy"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
@@ -346,7 +279,7 @@ resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
 
     step_adjustment {
       metric_interval_upper_bound = 0
-      scaling_adjustment          =  -1 * var.sqs_auto_scaling.scale_in_step
+      scaling_adjustment          = -1 * var.sqs_auto_scaling.scale_in_step
     }
   }
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
@@ -356,7 +289,7 @@ resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
 # SCALE OUT ALARM
 ###############################################################################
 resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
-  count               = length(var.sqs_auto_scaling) > 0 ? 1 : 0
+  count               = var.sqs_auto_scaling != {} ? 1 : 0
   alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/out-auto-scaling"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
@@ -381,7 +314,7 @@ resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
 # SCALE IN ALARM
 ###############################################################################
 resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
-  count               = length(var.sqs_auto_scaling) > 0 ? 1 : 0
+  count               = var.sqs_auto_scaling != {} ? 1 : 0
   alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/in-auto-scaling"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 1
