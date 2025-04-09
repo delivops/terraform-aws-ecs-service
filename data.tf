@@ -4,8 +4,13 @@ data "aws_ecs_cluster" "ecs_cluster" {
   cluster_name = var.ecs_cluster_name
 }
 
+data "aws_service_discovery_http_namespace" "namespace" {
+  count = contains(["client-server", "client-only"], var.service_connect.type) ? 1 : 0
+  name  = var.ecs_cluster_name
+}
+
 data "external" "listener_rules" {
-  count = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? 1 : 0
+  count = var.application_load_balancer.enabled ? 1 : 0
 
   program = ["bash", "-c", <<EOT
     aws elbv2 describe-rules --listener-arn ${var.application_load_balancer.listener_arn} | \

@@ -4,7 +4,7 @@ resource "aws_cloudwatch_log_group" "ecs_log_group" {
 }
 
 resource "aws_alb_target_group" "target_group" {
-  count       = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? 1 : 0
+  count       = var.application_load_balancer.enabled ? 1 : 0
   name        = replace("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}-tg", "_", "-")
   port        = var.application_load_balancer.container_port
   protocol    = var.application_load_balancer.protocol
@@ -23,7 +23,7 @@ resource "aws_alb_target_group" "target_group" {
 }
 
 resource "aws_lb_listener_rule" "rule" {
-  count        = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? 1 : 0
+  count        = var.application_load_balancer.enabled ? 1 : 0
   listener_arn = var.application_load_balancer.listener_arn
   priority     = local.next_priority
 
@@ -66,8 +66,8 @@ resource "aws_ecs_task_definition" "task_definition" {
       name      = var.container_name
       image     = var.container_image
       essential = true
-      portMappings = concat(
-        var.application_load_balancer != null ? [
+      portMappings = flatten([
+        var.application_load_balancer.enabled ? [
           {
             name          = "default"
             containerPort = var.application_load_balancer.container_port
@@ -76,8 +76,17 @@ resource "aws_ecs_task_definition" "task_definition" {
             appProtocol   = "http"
           }
         ] : [],
+        var.service_connect.enabled ? [
+          {
+            name          = "default"
+            containerPort = var.service_connect.port
+            hostPort      = var.service_connect.port
+            protocol      = "tcp"
+            appProtocol   = "http"
+          }
+        ] : [],
         [
-          for name, port_config in var.additional_ports : {
+          for name, port_config in var.service_connect.additional_ports : {
             name          = port_config.name
             containerPort = port_config.port
             hostPort      = port_config.port
@@ -85,7 +94,7 @@ resource "aws_ecs_task_definition" "task_definition" {
             appProtocol   = "http"
           }
         ]
-      )
+      ])
     }
   ])
 
@@ -98,14 +107,14 @@ resource "aws_ecs_service" "ecs_service" {
   name                               = var.ecs_service_name
   cluster                            = data.aws_ecs_cluster.ecs_cluster.id
   task_definition                    = aws_ecs_task_definition.task_definition.arn
-  desired_count                      = var.ecs_task_count
+  desired_count                      = var.ecs_desired_count
   deployment_minimum_healthy_percent = var.deployment_min_healthy
   deployment_maximum_percent         = var.deployment_max_percent
 
   enable_execute_command = false
   launch_type            = var.ecs_launch_type
   scheduling_strategy    = "REPLICA"
-  propagate_tags         = "NONE"
+  propagate_tags         = "SERVICE"
   platform_version       = "LATEST"
 
   deployment_controller {
@@ -133,7 +142,7 @@ resource "aws_ecs_service" "ecs_service" {
   }
 
   dynamic "load_balancer" {
-    for_each = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? [1] : []
+    for_each = var.application_load_balancer.enabled ? [1] : []
     content {
       target_group_arn = aws_alb_target_group.target_group[0].arn
       container_name   = var.container_name
@@ -141,41 +150,40 @@ resource "aws_ecs_service" "ecs_service" {
     }
   }
 
-  # Dynamic block for service connect configuration
   dynamic "service_connect_configuration" {
-    for_each = var.service_connect_enabled ? [1] : []
+    for_each = var.service_connect.enabled ? [1] : []
     content {
       enabled   = true
       namespace = var.ecs_cluster_name
 
-      # Main default service (if load balancer is defined)
       dynamic "service" {
-        for_each = var.application_load_balancer != null ? [1] : []
+        for_each = contains(["client-server"], var.service_connect.type) ? [1] : []
         content {
           port_name      = "default"
           discovery_name = var.ecs_service_name
           client_alias {
-            port     = var.application_load_balancer.container_port
+            port     = var.service_connect.port
             dns_name = var.ecs_service_name
           }
         }
       }
 
-      # Additional services for each additional port
       dynamic "service" {
-        for_each = var.service_connect_enabled ? var.additional_ports : {}
+        for_each = var.service_connect.type == "client-server" && length(var.service_connect.additional_ports) > 0 ? var.service_connect.additional_ports : []
         content {
           port_name      = service.value.name
           discovery_name = "${var.ecs_service_name}-${service.value.name}"
           client_alias {
             port     = service.value.port
-            dns_name = "${var.ecs_service_name}-${service.value.name}"
+            dns_name = var.ecs_service_name
           }
         }
       }
     }
   }
-
+  tags = {
+    Application = "${var.ecs_service_name}"
+  }
 
   lifecycle {
     ignore_changes = [task_definition, platform_version, desired_count]
@@ -242,9 +250,9 @@ resource "aws_appautoscaling_policy" "scale_by_memory_policy" {
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
 
-resource "aws_appautoscaling_policy" "scale_out_by_alarm_policy" {
+resource "aws_appautoscaling_policy" "scale_out_by_sqs_policy" {
   count              = var.sqs_auto_scaling.enabled ? 1 : 0
-  name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-out-by-alarm-policy"
+  name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-out-by-sqs-policy"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
   scalable_dimension = "ecs:service:DesiredCount"
@@ -263,9 +271,9 @@ resource "aws_appautoscaling_policy" "scale_out_by_alarm_policy" {
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
 
-resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
+resource "aws_appautoscaling_policy" "scale_in_by_sqs_policy" {
   count              = var.sqs_auto_scaling.enabled ? 1 : 0
-  name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-in-by-alarm-policy"
+  name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-in-by-sqs-policy"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
   scalable_dimension = "ecs:service:DesiredCount"
@@ -286,18 +294,18 @@ resource "aws_appautoscaling_policy" "scale_in_by_alarm_policy" {
 }
 
 ###############################################################################
-# SCALE OUT ALARM
+# SCALE OUT SQS AUTO SCALING ALARM
 ###############################################################################
-resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
+resource "aws_cloudwatch_metric_alarm" "out_sqs_auto_scaling" {
   count               = var.sqs_auto_scaling.enabled ? 1 : 0
-  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/out-auto-scaling"
+  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/out-sqs-auto-scaling"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   threshold           = var.sqs_auto_scaling.scale_out_threshold # e.g., 100
   alarm_description   = "Scale OUT if SQS message count are too high"
   datapoints_to_alarm = 1
-  alarm_actions       = [aws_appautoscaling_policy.scale_out_by_alarm_policy[0].arn]
-  treat_missing_data  = "breaching"
+  alarm_actions       = [aws_appautoscaling_policy.scale_out_by_sqs_policy[0].arn]
+  treat_missing_data  = "ignore"
 
   namespace   = "AWS/SQS"
   metric_name = "ApproximateNumberOfMessagesVisible"
@@ -311,18 +319,18 @@ resource "aws_cloudwatch_metric_alarm" "out_auto_scaling" {
 }
 
 ###############################################################################
-# SCALE IN ALARM
+# SCALE IN SQS AUTO SCALING ALARM
 ###############################################################################
-resource "aws_cloudwatch_metric_alarm" "in_auto_scaling" {
+resource "aws_cloudwatch_metric_alarm" "in_sqs_auto_scaling" {
   count               = var.sqs_auto_scaling.enabled ? 1 : 0
-  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/in-auto-scaling"
+  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/in-sqs-auto-scaling"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 1
   threshold           = var.sqs_auto_scaling.scale_in_threshold # e.g., 10
   alarm_description   = "Scale IN if SQS message count are too low"
   datapoints_to_alarm = 1
-  alarm_actions       = [aws_appautoscaling_policy.scale_in_by_alarm_policy[0].arn]
-  treat_missing_data  = "breaching"
+  alarm_actions       = [aws_appautoscaling_policy.scale_in_by_sqs_policy[0].arn]
+  treat_missing_data  = "ignore"
 
   namespace   = "AWS/SQS"
   metric_name = "ApproximateNumberOfMessagesVisible"

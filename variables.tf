@@ -18,6 +18,7 @@ variable "log_retention_days" {
 variable "application_load_balancer" {
   description = "alb"
   type = object({
+    enabled                          = optional(bool, false)
     container_port                   = optional(number, 80)
     listener_arn                     = optional(string, "")
     host                             = optional(string, "")
@@ -35,17 +36,24 @@ variable "application_load_balancer" {
   default = {}
 }
 
-variable "additional_ports" {
-  description = "value for additional ports"
-  default     = {}
-  type = map(object({
-    name = string
-    port = number
-  }))
-}
-variable "service_connect_enabled" {
-  description = "bool for service connect"
-  default     = false
+
+variable "service_connect" {
+  type = object({
+    enabled = optional(bool, false)
+    type    = optional(string, "client-only")
+    port    = optional(number, 80)
+    additional_ports = optional(list(object({
+      name = string
+      port = number
+    })), [])
+  })
+
+  default = {}
+
+  validation {
+    condition     = contains(["client-only", "client-server"], var.service_connect.type)
+    error_message = "Allowed values for service_connect.type are: client-only, client-server."
+  }
 }
 
 variable "vpc_id" {
@@ -79,7 +87,7 @@ variable "container_image" {
 }
 
 # ECS service variables
-variable "ecs_task_count" {
+variable "ecs_desired_count" {
   description = "Desired number of tasks"
   type        = number
   default     = 1
