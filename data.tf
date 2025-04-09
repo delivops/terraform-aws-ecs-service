@@ -5,7 +5,7 @@ data "aws_ecs_cluster" "ecs_cluster" {
 }
 
 data "aws_service_discovery_http_namespace" "namespace" {
-  count = contains(["client-server", "client-only"], var.service_connect.type) ? 1 : 0
+  count = var.service_connect.enabled ? 1 : 0
   name  = var.ecs_cluster_name
 }
 
