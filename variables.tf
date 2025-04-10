@@ -113,13 +113,13 @@ variable "ecs_launch_type" {
 variable "deployment" {
   description = "Deployment configuration for the ECS service"
   type = object({
-    min_healthy_percent     = optional(number, 100)
-    max_healthy_percent     = optional(number, 200)
-    circuit_breaker_enabled     = optional(bool, true)
-    rollback_enabled            = optional(bool, true)
-    cloudwatch_alarm_enabled    = optional(bool, false)
-    cloudwatch_alarm_rollback   = optional(bool, true)
-    cloudwatch_alarm_names       = optional(list(string), [])
+    min_healthy_percent       = optional(number, 100)
+    max_healthy_percent       = optional(number, 200)
+    circuit_breaker_enabled   = optional(bool, true)
+    rollback_enabled          = optional(bool, true)
+    cloudwatch_alarm_enabled  = optional(bool, false)
+    cloudwatch_alarm_rollback = optional(bool, true)
+    cloudwatch_alarm_names    = optional(list(string), [])
   })
   default = {}
 
@@ -167,4 +167,20 @@ variable "sqs_auto_scaling" {
     scale_out_threshold = optional(number, 100)
   })
 
+}
+
+variable "ecr" {
+  description = "ECR repository configuration"
+  type = object({
+    create_repo         = optional(bool, false)
+    repo_name                = optional(string, "")
+    mutability          = optional(string, "MUTABLE")
+    untagged_ttl_days   = optional(number, 7)
+    tagged_ttl_days     = optional(number, 7)
+    protected_prefixes  = optional(list(string), ["main", "master"])
+    protected_retention = optional(number, 999999) # Keep nearly forever
+    versioned_prefixes  = optional(list(string), ["v", "sha"])
+    versioned_retention = optional(number, 30) # How many versioned tags to keep
+  })
+  default = {}
 }
