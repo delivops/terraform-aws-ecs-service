@@ -107,9 +107,9 @@ resource "aws_ecs_service" "ecs_service" {
   name                               = var.ecs_service_name
   cluster                            = data.aws_ecs_cluster.ecs_cluster.id
   task_definition                    = aws_ecs_task_definition.task_definition.arn
-  desired_count                      = var.ecs_desired_count
-  deployment_minimum_healthy_percent = var.deployment_min_healthy
-  deployment_maximum_percent         = var.deployment_max_percent
+  desired_count                      = var.desired_count
+  deployment_minimum_healthy_percent = var.deployment.min_healthy_percent
+  deployment_maximum_percent         = var.deployment.max_healthy_percent
 
   enable_execute_command = false
   launch_type            = var.ecs_launch_type
@@ -122,8 +122,8 @@ resource "aws_ecs_service" "ecs_service" {
   }
 
   deployment_circuit_breaker {
-    enable   = var.deployment_circuit_breaker
-    rollback = var.deployment_rollback
+    enable   = var.deployment.circuit_breaker_enabled
+    rollback = var.deployment.rollback_enabled
   }
 
   network_configuration {
@@ -133,11 +133,11 @@ resource "aws_ecs_service" "ecs_service" {
   }
 
   dynamic "alarms" {
-    for_each = var.deployment_cloudwatch_alarm_enabled ? [1] : []
+    for_each = var.deployment.cloudwatch_alarm_enabled ? [1] : []
     content {
-      alarm_names = var.deployment_cloudwatch_alarm_names
+      alarm_names = var.deployment.cloudwatch_alarm_names
       enable      = true
-      rollback    = var.deployment_cloudwatch_alarm_rollback
+      rollback    = var.deployment.cloudwatch_alarm_rollback
     }
   }
 
@@ -298,7 +298,7 @@ resource "aws_appautoscaling_policy" "scale_in_by_sqs_policy" {
 ###############################################################################
 resource "aws_cloudwatch_metric_alarm" "out_sqs_auto_scaling" {
   count               = var.sqs_auto_scaling.enabled ? 1 : 0
-  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/out-sqs-auto-scaling"
+  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-out-auto-scaling"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   threshold           = var.sqs_auto_scaling.scale_out_threshold # e.g., 100
@@ -323,7 +323,7 @@ resource "aws_cloudwatch_metric_alarm" "out_sqs_auto_scaling" {
 ###############################################################################
 resource "aws_cloudwatch_metric_alarm" "in_sqs_auto_scaling" {
   count               = var.sqs_auto_scaling.enabled ? 1 : 0
-  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/in-sqs-auto-scaling"
+  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-in-auto-scaling"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 1
   threshold           = var.sqs_auto_scaling.scale_in_threshold # e.g., 10

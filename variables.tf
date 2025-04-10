@@ -14,7 +14,6 @@ variable "log_retention_days" {
   default     = 7
 }
 
-# Target group variables
 variable "application_load_balancer" {
   description = "alb"
   type = object({
@@ -60,8 +59,22 @@ variable "vpc_id" {
   description = "ID of the VPC"
   type        = string
 }
+variable "security_group_ids" {
+  description = "Security group IDs for the ECS tasks"
+  type        = list(string)
+}
 
-# Task definition variables
+variable "subnet_ids" {
+  description = "Subnet IDs for the ECS tasks"
+  type        = list(string)
+}
+
+variable "assign_public_ip" {
+  description = "Assign public IP to ECS tasks"
+  type        = bool
+  default     = false
+}
+
 variable "ecs_task_cpu" {
   description = "CPU units for the ECS task"
   type        = number
@@ -86,8 +99,7 @@ variable "container_image" {
   default     = "nginx:latest"
 }
 
-# ECS service variables
-variable "ecs_desired_count" {
+variable "desired_count" {
   description = "Desired number of tasks"
   type        = number
   default     = 1
@@ -98,65 +110,21 @@ variable "ecs_launch_type" {
   type        = string
   default     = "FARGATE"
 }
+variable "deployment" {
+  description = "Deployment configuration for the ECS service"
+  type = object({
+    min_healthy_percent     = optional(number, 100)
+    max_healthy_percent     = optional(number, 200)
+    circuit_breaker_enabled     = optional(bool, true)
+    rollback_enabled            = optional(bool, true)
+    cloudwatch_alarm_enabled    = optional(bool, false)
+    cloudwatch_alarm_rollback   = optional(bool, true)
+    cloudwatch_alarm_names       = optional(list(string), [])
+  })
+  default = {}
 
-variable "deployment_min_healthy" {
-  description = "Minimum healthy percent during deployment"
-  type        = number
-  default     = 100
 }
 
-variable "deployment_max_percent" {
-  description = "Maximum percent during deployment"
-  type        = number
-  default     = 200
-}
-
-variable "deployment_circuit_breaker" {
-  description = "Enable deployment circuit breaker"
-  type        = bool
-  default     = true
-}
-
-variable "deployment_rollback" {
-  description = "Enable deployment rollback"
-  type        = bool
-  default     = true
-}
-
-variable "security_group_ids" {
-  description = "Security group IDs for the ECS tasks"
-  type        = list(string)
-}
-
-variable "subnet_ids" {
-  description = "Subnet IDs for the ECS tasks"
-  type        = list(string)
-}
-
-variable "assign_public_ip" {
-  description = "Assign public IP to ECS tasks"
-  type        = bool
-  default     = false
-}
-
-# Deployment alarm variables
-variable "deployment_cloudwatch_alarm_enabled" {
-  description = "Enable CloudWatch alarms for deployment"
-  type        = bool
-  default     = false
-}
-
-variable "deployment_cloudwatch_alarm_names" {
-  description = "Names of CloudWatch alarms for deployment"
-  type        = list(string)
-  default     = []
-}
-
-variable "deployment_cloudwatch_alarm_rollback" {
-  description = "Enable rollback on CloudWatch alarm"
-  type        = bool
-  default     = true
-}
 variable "cpu_auto_scaling" {
   description = "value for auto scaling"
   default     = {}
