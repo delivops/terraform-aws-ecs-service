@@ -342,3 +342,83 @@ resource "aws_cloudwatch_metric_alarm" "in_sqs_auto_scaling" {
 
   depends_on = [aws_ecs_service.ecs_service]
 }
+
+
+###############################################################################
+# ECR REPOSITORY
+###############################################################################
+module "ecr" {
+  count   = var.ecr.create_repo ? 1 : 0
+  source  = "terraform-aws-modules/ecr/aws"
+  version = "2.3.0"
+
+  repository_name                 = var.ecr.repo_name != "" ? var.ecr.repo_name : var.ecs_service_name
+  repository_image_tag_mutability = var.ecr.mutability
+  attach_repository_policy        = false
+  repository_lifecycle_policy = jsonencode({
+    rules = concat(
+      [
+        {
+          rulePriority = 1,
+          description  = "Protect ${join(", ", var.ecr.protected_prefixes)} branches tags",
+          selection = {
+            tagStatus     = "tagged",
+            tagPrefixList = var.ecr.protected_prefixes,
+            countType     = "imageCountMoreThan",
+            countNumber   = var.ecr.protected_retention
+          },
+          action = {
+            type = "expire"
+          }
+        }
+      ],
+      [
+        for idx, prefix in var.ecr.versioned_prefixes : {
+          rulePriority = idx + 2, # Dynamic priority starting from 2
+          description  = "Keep number of latest releases images for ${prefix}",
+          selection = {
+            tagStatus     = "tagged",
+            tagPrefixList = [prefix],
+            countType     = "imageCountMoreThan",
+            countNumber   = var.ecr.versioned_retention
+          },
+          action = {
+            type = "expire"
+          }
+        }
+      ],
+      [
+        {
+          rulePriority = length(var.ecr.versioned_prefixes) + 2,
+          description  = "Expire all tagged images older than ${var.ecr.tagged_ttl_days} days",
+          selection = {
+            tagStatus      = "tagged",
+            tagPatternList = ["*"],
+            countType      = "sinceImagePushed",
+            countUnit      = "days",
+            countNumber    = var.ecr.tagged_ttl_days
+          },
+          action = {
+            type = "expire"
+          }
+        },
+        {
+          rulePriority = length(var.ecr.versioned_prefixes) + 3,
+          description  = "Remove untagged images older than ${var.ecr.untagged_ttl_days} days",
+          selection = {
+            tagStatus   = "untagged",
+            countType   = "sinceImagePushed",
+            countUnit   = "days",
+            countNumber = var.ecr.untagged_ttl_days
+          },
+          action = {
+            type = "expire"
+          }
+        }
+      ]
+    )
+  })
+  tags = {
+    Application = "${var.ecs_service_name}"
+  }
+}
