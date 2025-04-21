@@ -1,25 +1,25 @@
-name: Release Please
+# name: Release Please
 
-on:
-  push:
-    branches:
-      - main
-  pull_request: 
-    branches:
-      - main
-permissions:
-  contents: write
-  actions: write
-  id-token: write
-  pull-requests: write
-  statuses: write
-  issues: write
+# on:
+#   push:
+#     branches:
+#       - main
+#   pull_request: 
+#     branches:
+#       - main
+# permissions:
+#   contents: write
+#   actions: write
+#   id-token: write
+#   pull-requests: write
+#   statuses: write
+#   issues: write
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: googleapis/release-please-action@v4
-        with:
-          release-type: terraform-module
-          token: ${{ secrets.GITHUB_TOKEN }}
+# jobs:
+#   release:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: googleapis/release-please-action@v4
+#         with:
+#           release-type: terraform-module
+#           token: ${{ secrets.GITHUB_TOKEN }}
