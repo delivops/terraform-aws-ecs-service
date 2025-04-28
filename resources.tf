@@ -193,23 +193,44 @@ resource "aws_ecs_service" "ecs_service" {
 }
 
 resource "aws_appautoscaling_target" "ecs_target" {
-  count = var.cpu_auto_scaling.enabled || var.memory_auto_scaling.enabled || var.sqs_auto_scaling.enabled ? 1 : 0
+  count = (var.cpu_auto_scaling.enabled || var.memory_auto_scaling.enabled || var.sqs_auto_scaling.enabled || var.schedule_auto_scaling.enabled) ? 1 : 0
   min_capacity = max(
     try(var.cpu_auto_scaling.min_replicas, 1),
     try(var.memory_auto_scaling.min_replicas, 1),
-    try(var.sqs_auto_scaling.min_replicas, 1)
+    try(var.sqs_auto_scaling.min_replicas, 1),
+    try(var.schedule_auto_scaling.min_replicas, 1)
   )
   max_capacity = max(
     try(var.cpu_auto_scaling.max_replicas, 1),
     try(var.memory_auto_scaling.max_replicas, 1),
-    try(var.sqs_auto_scaling.max_replicas, 1)
+    try(var.sqs_auto_scaling.max_replicas, 1),
+    try(var.schedule_auto_scaling.max_replicas, 1)
   )
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
   depends_on         = [aws_ecs_service.ecs_service]
 }
+resource "aws_appautoscaling_scheduled_action" "ecs_scheduled_scaling" {
+  count = var.schedule_auto_scaling.enabled ? length(var.schedule_auto_scaling.schedules) : 0
 
+  name               = "${var.ecs_cluster_name}-${var.ecs_service_name}-${var.schedule_auto_scaling.schedules[count.index].schedule_name}"
+  service_namespace  = "ecs"
+  resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  schedule           = var.schedule_auto_scaling.schedules[count.index].schedule_expression
+  timezone           = var.schedule_auto_scaling.schedules[count.index].time_zone
+  start_time         = timeadd(timestamp(), "10900s")
+  scalable_target_action {
+    min_capacity = var.schedule_auto_scaling.schedules[count.index].min_capacity
+    max_capacity = var.schedule_auto_scaling.schedules[count.index].max_capacity
+  }
+
+  depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
+  # lifecycle {
+  #   ignore_changes = [start_time]
+  # }
+}
 resource "aws_appautoscaling_policy" "scale_by_cpu_policy" {
   count              = var.cpu_auto_scaling.enabled ? 1 : 0
   name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-by-cpu-policy"
@@ -420,5 +441,6 @@ module "ecr" {
   })
   tags = {
     Application = "${var.ecs_service_name}"
+    Environment = "None"
   }
 }
