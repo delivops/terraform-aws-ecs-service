@@ -169,11 +169,26 @@ variable "sqs_auto_scaling" {
 
 }
 
+variable "schedule_auto_scaling" {
+  description = "Scheduled auto scaling configuration"
+  default     = {}
+  type = object({
+    enabled = optional(bool, false)
+    schedules = optional(list(object({
+      schedule_name       = string
+      min_capacity        = number
+      max_capacity        = number
+      schedule_expression = string # cron expression
+      time_zone           = optional(string, "Asia/Jerusalem")
+    })), [])
+  })
+}
+
 variable "ecr" {
   description = "ECR repository configuration"
   type = object({
     create_repo         = optional(bool, false)
-    repo_name                = optional(string, "")
+    repo_name           = optional(string, "")
     mutability          = optional(string, "MUTABLE")
     untagged_ttl_days   = optional(number, 7)
     tagged_ttl_days     = optional(number, 7)
