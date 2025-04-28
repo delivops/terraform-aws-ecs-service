@@ -179,7 +179,7 @@ variable "schedule_auto_scaling" {
       min_capacity        = number
       max_capacity        = number
       schedule_expression = string # cron expression
-      time_zone           = optional(string, "UTC")
+      time_zone           = optional(string, "Asia/Jerusalem")
     })), [])
   })
 }
