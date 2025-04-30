@@ -35,6 +35,29 @@ variable "application_load_balancer" {
   default = {}
 }
 
+variable "additional_load_balancers" {
+  description = "Additional load balancers configuration"
+  type = list(object({
+    enabled                          = optional(bool, false)
+    container_port                   = optional(number, 80)
+    listener_arn                     = optional(string, "")
+    host                             = optional(string, "")
+    path                             = optional(string, "/*")
+    protocol                         = optional(string, "HTTP")
+    health_check_path                = optional(string, "/health")
+    health_check_matcher             = optional(string, "200")
+    health_check_interval_sec        = optional(number, 30)
+    health_check_timeout_sec         = optional(number, 5)
+    health_check_threshold_healthy   = optional(number, 3)
+    health_check_threshold_unhealthy = optional(number, 3)
+    health_check_protocol            = optional(string, "HTTP")
+  }))
+  default = []
+}
+
+
+
+
 
 variable "service_connect" {
   type = object({

@@ -22,6 +22,29 @@ resource "aws_alb_target_group" "target_group" {
   }
 }
 
+resource "aws_alb_target_group" "target_group_additional" {
+  for_each = {
+    for idx, alb in var.additional_load_balancers : idx => alb
+    if alb.enabled
+  }
+
+  name        = replace("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}-tg-${each.key}", "_", "-")
+  port        = each.value.container_port
+  protocol    = each.value.protocol
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  health_check {
+    healthy_threshold   = each.value.health_check_threshold_healthy
+    interval            = each.value.health_check_interval_sec
+    protocol            = each.value.health_check_protocol
+    matcher             = each.value.health_check_matcher
+    timeout             = each.value.health_check_timeout_sec
+    path                = each.value.health_check_path
+    unhealthy_threshold = each.value.health_check_threshold_unhealthy
+  }
+}
+
 resource "aws_lb_listener_rule" "rule" {
   count        = var.application_load_balancer.enabled ? 1 : 0
   listener_arn = var.application_load_balancer.listener_arn
@@ -30,9 +53,6 @@ resource "aws_lb_listener_rule" "rule" {
   action {
     type             = "forward"
     target_group_arn = aws_alb_target_group.target_group[0].arn
-  }
-  lifecycle {
-    ignore_changes = [priority]
   }
   dynamic "condition" {
     for_each = length(var.application_load_balancer.host) > 0 ? [1] : []
@@ -51,7 +71,46 @@ resource "aws_lb_listener_rule" "rule" {
       }
     }
   }
+  lifecycle {
+    ignore_changes = [priority]
+  }
   depends_on = [aws_alb_target_group.target_group]
+}
+
+resource "aws_lb_listener_rule" "rule_additional" {
+  for_each = {
+    for idx, alb in var.additional_load_balancers : idx => alb
+    if alb.enabled
+  }
+
+  listener_arn = each.value.listener_arn
+  priority     = local.next_priority + tonumber(each.key) + 1
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_alb_target_group.target_group_additional[each.key].arn
+  }
+  dynamic "condition" {
+    for_each = length(each.value.host) > 0 ? [1] : []
+    content {
+      host_header {
+        values = [each.value.host]
+      }
+    }
+  }
+
+  dynamic "condition" {
+    for_each = length(each.value.path) > 0 ? [1] : []
+    content {
+      path_pattern {
+        values = [each.value.path]
+      }
+    }
+  }
+  lifecycle {
+    ignore_changes = [priority]
+  }
+  depends_on = [aws_alb_target_group.target_group_additional]
 }
 
 resource "aws_ecs_task_definition" "task_definition" {
@@ -69,7 +128,7 @@ resource "aws_ecs_task_definition" "task_definition" {
       portMappings = flatten([
         var.application_load_balancer.enabled ? [
           {
-            name          = "default"
+            name          = "alb"
             containerPort = var.application_load_balancer.container_port
             hostPort      = var.application_load_balancer.container_port
             protocol      = "tcp"
@@ -90,6 +149,15 @@ resource "aws_ecs_task_definition" "task_definition" {
             name          = port_config.name
             containerPort = port_config.port
             hostPort      = port_config.port
+            protocol      = "tcp"
+            appProtocol   = "http"
+          }
+        ],
+        [
+          for idx, alb in var.additional_load_balancers : {
+            name          = "alb-${idx}"
+            containerPort = alb.container_port
+            hostPort      = alb.container_port
             protocol      = "tcp"
             appProtocol   = "http"
           }
@@ -140,13 +208,24 @@ resource "aws_ecs_service" "ecs_service" {
       rollback    = var.deployment.cloudwatch_alarm_rollback
     }
   }
-
   dynamic "load_balancer" {
     for_each = var.application_load_balancer.enabled ? [1] : []
     content {
       target_group_arn = aws_alb_target_group.target_group[0].arn
       container_name   = var.container_name
       container_port   = var.application_load_balancer.container_port
+    }
+  }
+
+  dynamic "load_balancer" {
+    for_each = {
+      for idx, alb in var.additional_load_balancers : idx => alb
+      if alb.enabled
+    }
+    content {
+      target_group_arn = aws_alb_target_group.target_group_additional[load_balancer.key].arn
+      container_name   = var.container_name
+      container_port   = load_balancer.value.container_port
     }
   }
 
@@ -188,8 +267,10 @@ resource "aws_ecs_service" "ecs_service" {
   lifecycle {
     ignore_changes = [task_definition, platform_version, desired_count]
   }
-
-  depends_on = [aws_lb_listener_rule.rule]
+  depends_on = [aws_lb_listener_rule.rule,
+    aws_lb_listener_rule.rule_additional,
+    aws_alb_target_group.target_group,
+  aws_alb_target_group.target_group_additional]
 }
 
 resource "aws_appautoscaling_target" "ecs_target" {
@@ -220,16 +301,16 @@ resource "aws_appautoscaling_scheduled_action" "ecs_scheduled_scaling" {
   scalable_dimension = "ecs:service:DesiredCount"
   schedule           = var.schedule_auto_scaling.schedules[count.index].schedule_expression
   timezone           = var.schedule_auto_scaling.schedules[count.index].time_zone
-  start_time         = timeadd(timestamp(), "10900s")
+  start_time         = timeadd(timestamp(), "100s")
   scalable_target_action {
     min_capacity = var.schedule_auto_scaling.schedules[count.index].min_capacity
     max_capacity = var.schedule_auto_scaling.schedules[count.index].max_capacity
   }
 
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
-  # lifecycle {
-  #   ignore_changes = [start_time]
-  # }
+  lifecycle {
+    ignore_changes = [start_time]
+  }
 }
 resource "aws_appautoscaling_policy" "scale_by_cpu_policy" {
   count              = var.cpu_auto_scaling.enabled ? 1 : 0
