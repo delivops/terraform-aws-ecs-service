@@ -30,7 +30,9 @@ variable "application_load_balancer" {
     health_check_threshold_healthy   = optional(number, 3)
     health_check_threshold_unhealthy = optional(number, 3)
     health_check_protocol            = optional(string, "HTTP")
-
+    stickiness                       = optional(bool, false)
+    stickiness_ttl                   = optional(number, 300)
+    action_type                      = optional(string, "forward")
   })
   default = {}
 }
@@ -51,6 +53,9 @@ variable "additional_load_balancers" {
     health_check_threshold_healthy   = optional(number, 3)
     health_check_threshold_unhealthy = optional(number, 3)
     health_check_protocol            = optional(string, "HTTP")
+    stickiness                       = optional(bool, false)
+    stickiness_ttl                   = optional(number, 300)
+    action_type                      = optional(string, "forward")
   }))
   default = []
 }

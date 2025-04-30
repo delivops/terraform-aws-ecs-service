@@ -13,6 +13,8 @@ module "alb_ecs_service" {
     host              = "demo.internal.delivops.com"
     path              = "/*"
     health_check_path = "/health"
+    stickiness        = true
+    stickiness_ttl    = 3003
   }
   additional_load_balancers = [
     {
@@ -22,9 +24,12 @@ module "alb_ecs_service" {
       host              = "demo123.internal.delivops.com"
       path              = "/*"
       health_check_path = "/heal23th"
+      action_type       = "fixed-response"
     }
   ]
 }
+
+
 
 //if not put the listener_arn, the plan will failed.check "" {
 //create 5 resources + len(var.additional_load_balancers)*2

@@ -20,12 +20,13 @@ resource "aws_alb_target_group" "target_group" {
     path                = var.application_load_balancer.health_check_path
     unhealthy_threshold = var.application_load_balancer.health_check_threshold_unhealthy
   }
+  depends_on = [aws_alb_target_group.target_group_additional]
 }
 
 resource "aws_alb_target_group" "target_group_additional" {
   for_each = {
     for idx, alb in var.additional_load_balancers : idx => alb
-    if alb.enabled
+    if alb.enabled && try(alb.action_type, "forward") == "forward"
   }
 
   name        = replace("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}-tg-${each.key}", "_", "-")
@@ -46,14 +47,41 @@ resource "aws_alb_target_group" "target_group_additional" {
 }
 
 resource "aws_lb_listener_rule" "rule" {
-  count        = var.application_load_balancer.enabled ? 1 : 0
-  listener_arn = var.application_load_balancer.listener_arn
-  priority     = local.next_priority
+  count = var.application_load_balancer.enabled ? 1 : 0
 
-  action {
-    type             = "forward"
-    target_group_arn = aws_alb_target_group.target_group[0].arn
+  listener_arn = var.application_load_balancer.listener_arn
+  priority     = local.next_priority + length(var.additional_load_balancers)
+
+  dynamic "action" {
+    for_each = var.application_load_balancer.action_type == "forward" ? [1] : []
+    content {
+      type = "forward"
+
+      forward {
+        target_group {
+          arn = aws_alb_target_group.target_group[0].arn
+        }
+
+        stickiness {
+          enabled  = lookup(var.application_load_balancer, "stickiness", false)
+          duration = lookup(var.application_load_balancer, "stickiness_ttl", 300)
+        }
+      }
+    }
   }
+
+  dynamic "action" {
+    for_each = var.application_load_balancer.action_type == "fixed-response" ? [1] : []
+    content {
+      type = "fixed-response"
+      fixed_response {
+        content_type = "text/plain"
+        message_body = "Unauthorized"
+        status_code  = "401"
+      }
+    }
+  }
+
   dynamic "condition" {
     for_each = length(var.application_load_balancer.host) > 0 ? [1] : []
     content {
@@ -71,11 +99,14 @@ resource "aws_lb_listener_rule" "rule" {
       }
     }
   }
+
   lifecycle {
     ignore_changes = [priority]
   }
-  depends_on = [aws_alb_target_group.target_group]
+
+  depends_on = [aws_alb_target_group.target_group, aws_lb_listener_rule.rule_additional, aws_alb_target_group.target_group_additional]
 }
+
 
 resource "aws_lb_listener_rule" "rule_additional" {
   for_each = {
@@ -84,12 +115,38 @@ resource "aws_lb_listener_rule" "rule_additional" {
   }
 
   listener_arn = each.value.listener_arn
-  priority     = local.next_priority + tonumber(each.key) + 1
+  priority     = local.next_priority + tonumber(each.key)
 
-  action {
-    type             = "forward"
-    target_group_arn = aws_alb_target_group.target_group_additional[each.key].arn
+  dynamic "action" {
+    for_each = each.value.action_type == "forward" ? [1] : []
+    content {
+      type = "forward"
+
+      forward {
+        target_group {
+          arn = aws_alb_target_group.target_group_additional[each.key].arn
+        }
+
+        stickiness {
+          enabled  = lookup(each.value, "stickiness", false)
+          duration = lookup(each.value, "stickiness_ttl", 300)
+        }
+      }
+    }
   }
+
+  dynamic "action" {
+    for_each = each.value.action_type == "fixed-response" ? [1] : []
+    content {
+      type = "fixed-response"
+      fixed_response {
+        content_type = "text/plain"
+        message_body = "Unauthorized"
+        status_code  = "401"
+      }
+    }
+  }
+
   dynamic "condition" {
     for_each = length(each.value.host) > 0 ? [1] : []
     content {
@@ -107,11 +164,14 @@ resource "aws_lb_listener_rule" "rule_additional" {
       }
     }
   }
+
   lifecycle {
     ignore_changes = [priority]
   }
+
   depends_on = [aws_alb_target_group.target_group_additional]
 }
+
 
 resource "aws_ecs_task_definition" "task_definition" {
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
@@ -126,7 +186,7 @@ resource "aws_ecs_task_definition" "task_definition" {
       image     = var.container_image
       essential = true
       portMappings = flatten([
-        var.application_load_balancer.enabled ? [
+        var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward" ? [
           {
             name          = "alb"
             containerPort = var.application_load_balancer.container_port
@@ -209,7 +269,7 @@ resource "aws_ecs_service" "ecs_service" {
     }
   }
   dynamic "load_balancer" {
-    for_each = var.application_load_balancer.enabled ? [1] : []
+    for_each = var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward" ? [1] : []
     content {
       target_group_arn = aws_alb_target_group.target_group[0].arn
       container_name   = var.container_name
@@ -220,7 +280,7 @@ resource "aws_ecs_service" "ecs_service" {
   dynamic "load_balancer" {
     for_each = {
       for idx, alb in var.additional_load_balancers : idx => alb
-      if alb.enabled
+      if alb.enabled && alb.action_type == "forward"
     }
     content {
       target_group_arn = aws_alb_target_group.target_group_additional[load_balancer.key].arn
