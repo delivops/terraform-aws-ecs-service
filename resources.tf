@@ -212,15 +212,6 @@ resource "aws_ecs_task_definition" "task_definition" {
             protocol      = "tcp"
             appProtocol   = "http"
           }
-        ],
-        [
-          for idx, alb in var.additional_load_balancers : {
-            name          = "alb-${idx}"
-            containerPort = alb.container_port
-            hostPort      = alb.container_port
-            protocol      = "tcp"
-            appProtocol   = "http"
-          } if alb.enabled && alb.action_type == "forward" && alb.container_port != -1
         ]
       ])
     }
