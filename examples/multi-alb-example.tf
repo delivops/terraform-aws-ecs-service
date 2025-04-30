@@ -19,7 +19,6 @@ module "alb_ecs_service" {
   additional_load_balancers = [
     {
       enabled           = true
-      container_port    = 8000
       listener_arn      = var.listener_arn
       host              = "demo123.internal.delivops.com"
       path              = "/*"

@@ -41,7 +41,7 @@ variable "additional_load_balancers" {
   description = "Additional load balancers configuration"
   type = list(object({
     enabled                          = optional(bool, false)
-    container_port                   = optional(number, 80)
+    container_port                   = optional(number, -1)
     listener_arn                     = optional(string, "")
     host                             = optional(string, "")
     path                             = optional(string, "/*")

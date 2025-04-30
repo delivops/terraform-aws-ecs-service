@@ -220,7 +220,7 @@ resource "aws_ecs_task_definition" "task_definition" {
             hostPort      = alb.container_port
             protocol      = "tcp"
             appProtocol   = "http"
-          }
+          } if alb.enabled && alb.action_type == "forward" && alb.container_port != -1
         ]
       ])
     }
