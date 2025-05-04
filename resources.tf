@@ -342,6 +342,9 @@ resource "aws_appautoscaling_target" "ecs_target" {
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
   depends_on         = [aws_ecs_service.ecs_service]
+   lifecycle {
+    ignore_changes = [min_capacity, max_capacity]
+  } 
 }
 resource "aws_appautoscaling_scheduled_action" "ecs_scheduled_scaling" {
   count = var.schedule_auto_scaling.enabled ? length(var.schedule_auto_scaling.schedules) : 0
