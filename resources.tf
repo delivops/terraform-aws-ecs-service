@@ -327,16 +327,16 @@ resource "aws_ecs_service" "ecs_service" {
 resource "aws_appautoscaling_target" "ecs_target" {
   count = (var.cpu_auto_scaling.enabled || var.memory_auto_scaling.enabled || var.sqs_auto_scaling.enabled || var.schedule_auto_scaling.enabled) ? 1 : 0
   min_capacity = max(
-    try(var.cpu_auto_scaling.min_replicas, 1),
-    try(var.memory_auto_scaling.min_replicas, 1),
-    try(var.sqs_auto_scaling.min_replicas, 1),
-    try(var.schedule_auto_scaling.min_replicas, 1)
+    try(var.cpu_auto_scaling.min_replicas, 0),
+    try(var.memory_auto_scaling.min_replicas, 0),
+    try(var.sqs_auto_scaling.min_replicas, 0),
+    try(var.schedule_auto_scaling.min_replicas, 0)
   )
   max_capacity = max(
-    try(var.cpu_auto_scaling.max_replicas, 1),
-    try(var.memory_auto_scaling.max_replicas, 1),
-    try(var.sqs_auto_scaling.max_replicas, 1),
-    try(var.schedule_auto_scaling.max_replicas, 1)
+    try(var.cpu_auto_scaling.max_replicas, 0),
+    try(var.memory_auto_scaling.max_replicas, 0),
+    try(var.sqs_auto_scaling.max_replicas, 0),
+    try(var.schedule_auto_scaling.max_replicas, 0)
   )
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
   scalable_dimension = "ecs:service:DesiredCount"
@@ -357,8 +357,8 @@ resource "aws_appautoscaling_scheduled_action" "ecs_scheduled_scaling" {
   timezone           = var.schedule_auto_scaling.schedules[count.index].time_zone
   start_time         = timeadd(timestamp(), "100s")
   scalable_target_action {
-    min_capacity = var.schedule_auto_scaling.schedules[count.index].min_capacity
-    max_capacity = var.schedule_auto_scaling.schedules[count.index].max_capacity
+    min_capacity = try(var.schedule_auto_scaling.schedules[count.index].min_replicas,0)
+    max_capacity = try(var.schedule_auto_scaling.schedules[count.index].max_replicas,0)
   }
 
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]

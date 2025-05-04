@@ -203,10 +203,10 @@ variable "schedule_auto_scaling" {
   type = object({
     enabled = optional(bool, false)
     schedules = optional(list(object({
-      schedule_name       = string
-      min_capacity        = number
-      max_capacity        = number
-      schedule_expression = string # cron expression
+      schedule_name       = optional(number,"")
+      min_replicas        = optional(number,1)
+      min_replicas        = optional(number,1)
+      schedule_expression = optional(string, "cron(0 0 1 * ? *)") # cron expression
       time_zone           = optional(string, "Asia/Jerusalem")
     })), [])
   })
