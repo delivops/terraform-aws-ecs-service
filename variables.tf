@@ -134,9 +134,13 @@ variable "desired_count" {
 }
 
 variable "ecs_launch_type" {
-  description = "Launch type for the ECS service"
+  description = "Launch type for the ECS service (FARGATE or EC2)"
   type        = string
   default     = "FARGATE"
+  validation {
+    condition     = contains(["FARGATE", "EC2"], var.ecs_launch_type)
+    error_message = "Valid values for ecs_launch_type are FARGATE or EC2."
+  }
 }
 variable "deployment" {
   description = "Deployment configuration for the ECS service"
@@ -151,6 +155,11 @@ variable "deployment" {
   })
   default = {}
 
+}
+variable "capacity_provider_strategy" {
+description = "name of the capacity"
+type = string
+default = ""
 }
 
 variable "cpu_auto_scaling" {

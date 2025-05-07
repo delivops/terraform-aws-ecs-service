@@ -185,6 +185,9 @@ resource "aws_ecs_task_definition" "task_definition" {
       name      = var.container_name
       image     = var.container_image
       essential = true
+      environment = [
+        { name = "NVIDIA_DRIVER_CAPABILITIES", value = "all" }
+      ]
       portMappings = flatten([
         var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward" ? [
           {
@@ -231,11 +234,10 @@ resource "aws_ecs_service" "ecs_service" {
   deployment_maximum_percent         = var.deployment.max_healthy_percent
 
   enable_execute_command = false
-  launch_type            = var.ecs_launch_type
+  launch_type            = var.ecs_launch_type == "FARGATE" ? "LATEST" : null
   scheduling_strategy    = "REPLICA"
   propagate_tags         = "SERVICE"
-  platform_version       = "LATEST"
-
+  platform_version       = var.ecs_launch_type == "FARGATE" ? "LATEST" : ""
   deployment_controller {
     type = "ECS"
   }
@@ -250,7 +252,6 @@ resource "aws_ecs_service" "ecs_service" {
     subnets          = var.subnet_ids
     assign_public_ip = var.assign_public_ip
   }
-
   dynamic "alarms" {
     for_each = var.deployment.cloudwatch_alarm_enabled ? [1] : []
     content {
@@ -266,6 +267,15 @@ resource "aws_ecs_service" "ecs_service" {
       container_name   = var.container_name
       container_port   = var.application_load_balancer.container_port
     }
+  }
+  dynamic "capacity_provider_strategy" {
+    for_each = var.ecs_launch_type == "EC2" && var.capacity_provider_strategy != "" ? [1] : []
+    content {
+      capacity_provider = var.capacity_provider_strategy
+      weight            = 1
+      base              = 0
+    }
+
   }
 
   dynamic "load_balancer" {
@@ -342,9 +352,9 @@ resource "aws_appautoscaling_target" "ecs_target" {
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
   depends_on         = [aws_ecs_service.ecs_service]
-   lifecycle {
+  lifecycle {
     ignore_changes = [min_capacity, max_capacity]
-  } 
+  }
 }
 resource "aws_appautoscaling_scheduled_action" "ecs_scheduled_scaling" {
   count = var.schedule_auto_scaling.enabled ? length(var.schedule_auto_scaling.schedules) : 0
@@ -357,8 +367,8 @@ resource "aws_appautoscaling_scheduled_action" "ecs_scheduled_scaling" {
   timezone           = var.schedule_auto_scaling.schedules[count.index].time_zone
   start_time         = timeadd(timestamp(), "100s")
   scalable_target_action {
-    min_capacity = try(var.schedule_auto_scaling.schedules[count.index].min_replicas,0)
-    max_capacity = try(var.schedule_auto_scaling.schedules[count.index].max_replicas,0)
+    min_capacity = try(var.schedule_auto_scaling.schedules[count.index].min_replicas, 0)
+    max_capacity = try(var.schedule_auto_scaling.schedules[count.index].max_replicas, 0)
   }
 
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
