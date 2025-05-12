@@ -202,6 +202,7 @@ variable "sqs_auto_scaling" {
     scale_out_cooldown  = optional(number, 300)
     scale_in_threshold  = optional(number, 10)
     scale_out_threshold = optional(number, 100)
+    metric_interval     = optional(number, 10)
   })
 
 }
