@@ -475,7 +475,7 @@ resource "aws_cloudwatch_metric_alarm" "out_sqs_auto_scaling" {
 
   namespace   = "AWS/SQS"
   metric_name = "ApproximateNumberOfMessagesVisible"
-  period      = 60
+  period      = 10
   statistic   = "Average"
   dimensions = {
     QueueName = var.sqs_auto_scaling.queue_name
@@ -500,7 +500,7 @@ resource "aws_cloudwatch_metric_alarm" "in_sqs_auto_scaling" {
 
   namespace   = "AWS/SQS"
   metric_name = "ApproximateNumberOfMessagesVisible"
-  period      = 60
+  period      = 10
   statistic   = "Average"
   dimensions = {
     QueueName = var.sqs_auto_scaling.queue_name
