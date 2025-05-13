@@ -234,7 +234,7 @@ resource "aws_ecs_service" "ecs_service" {
   deployment_maximum_percent         = var.deployment.max_healthy_percent
 
   enable_execute_command = var.enable_execute_command
-  launch_type            = var.ecs_launch_type == "FARGATE" ? "LATEST" : null
+  launch_type            = var.ecs_launch_type
   scheduling_strategy    = "REPLICA"
   propagate_tags         = "SERVICE"
   platform_version       = var.ecs_launch_type == "FARGATE" ? "LATEST" : ""
@@ -269,7 +269,7 @@ resource "aws_ecs_service" "ecs_service" {
     }
   }
   dynamic "capacity_provider_strategy" {
-    for_each = var.ecs_launch_type == "EC2" && var.capacity_provider_strategy != "" ? [1] : []
+    for_each = var.capacity_provider_strategy != "" ? [1] : []
     content {
       capacity_provider = var.capacity_provider_strategy
       weight            = 1
