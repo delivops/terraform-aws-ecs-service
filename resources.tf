@@ -233,7 +233,7 @@ resource "aws_ecs_service" "ecs_service" {
   deployment_minimum_healthy_percent = var.deployment.min_healthy_percent
   deployment_maximum_percent         = var.deployment.max_healthy_percent
 
-  enable_execute_command = false
+  enable_execute_command = var.enable_execute_command
   launch_type            = var.ecs_launch_type == "FARGATE" ? "LATEST" : null
   scheduling_strategy    = "REPLICA"
   propagate_tags         = "SERVICE"

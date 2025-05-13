@@ -103,6 +103,12 @@ variable "assign_public_ip" {
   default     = false
 }
 
+variable "enable_execute_command" {
+  description = "Enable execute command"
+  type        = bool
+  default     = true
+}
+
 variable "ecs_task_cpu" {
   description = "CPU units for the ECS task"
   type        = number
