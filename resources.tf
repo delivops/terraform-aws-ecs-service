@@ -478,7 +478,7 @@ resource "aws_cloudwatch_metric_alarm" "out_sqs_auto_scaling" {
   period      = var.sqs_auto_scaling.metric_interval
   statistic   = "Average"
   dimensions = {
-    QueueName = var.sqs_auto_scaling.queue_name
+    QueueName = local.scale_out_queue_name
   }
 
   depends_on = [aws_ecs_service.ecs_service]
@@ -503,7 +503,7 @@ resource "aws_cloudwatch_metric_alarm" "in_sqs_auto_scaling" {
   period      = var.sqs_auto_scaling.metric_interval
   statistic   = "Average"
   dimensions = {
-    QueueName = var.sqs_auto_scaling.queue_name
+    QueueName = local.scale_in_queue_name
   }
 
   depends_on = [aws_ecs_service.ecs_service]

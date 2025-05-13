@@ -5,4 +5,19 @@ locals {
 
   max_priority  = length(local.existing_priorities) > 0 ? max(local.existing_priorities...) : 0
   next_priority = local.max_priority + 1
+
+
+  scale_in_queue_name = (
+    var.sqs_auto_scaling.queue_name != "" ?
+    var.sqs_auto_scaling.queue_name :
+    var.sqs_auto_scaling.scale_in_queue_name
+  )
+
+  scale_out_queue_name = (
+    var.sqs_auto_scaling.queue_name != "" ?
+    var.sqs_auto_scaling.queue_name :
+    var.sqs_auto_scaling.scale_out_queue_name
+  )  
+
+
 }
