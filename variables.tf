@@ -203,14 +203,15 @@ variable "sqs_auto_scaling" {
     max_replicas        = optional(number, 1)
     scale_in_queue_name = optional(string, "")
     scale_out_queue_name = optional(string, "")
-    queue_name = optional(string, "")
+    queue_name          = optional(string, "")
     scale_in_step       = optional(number, 1)
     scale_out_step      = optional(number, 1)
     scale_in_cooldown   = optional(number, 300)
     scale_out_cooldown  = optional(number, 300)
     scale_in_threshold  = optional(number, 10)
     scale_out_threshold = optional(number, 100)
-    metric_interval     = optional(number, 10)
+    scale_out_interval  = optional(number, 10)
+    scale_in_interval   = optional(number, 10)
   })
 
 }
