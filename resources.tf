@@ -179,7 +179,6 @@ resource "aws_ecs_task_definition" "task_definition" {
   requires_compatibilities = [var.ecs_launch_type]
   cpu                      = var.ecs_task_cpu
   memory                   = var.ecs_task_memory
-  task_role_arn            = var.role_arn
   container_definitions = jsonencode([
     {
       name      = var.container_name
@@ -234,7 +233,7 @@ resource "aws_ecs_service" "ecs_service" {
   deployment_maximum_percent         = var.deployment.max_healthy_percent
 
   enable_execute_command = var.enable_execute_command
-  launch_type            = var.ecs_launch_type == "FARGATE" ? "FARGATE" : null
+  launch_type            = var.capacity_provider_strategy == "" ? "FARGATE" : null
   scheduling_strategy    = "REPLICA"
   propagate_tags         = "SERVICE"
   platform_version       = var.ecs_launch_type == "FARGATE" ? "LATEST" : ""

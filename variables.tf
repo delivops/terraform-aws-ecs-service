@@ -138,11 +138,7 @@ variable "desired_count" {
   type        = number
   default     = 1
 }
-variable "role_arn" {
-  description = "Desired number of tasks"
-  type        = string
-  default     = ""
-}
+
 
 variable "ecs_launch_type" {
   description = "Launch type for the ECS service (FARGATE or EC2)"
