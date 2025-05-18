@@ -320,9 +320,11 @@ resource "aws_ecs_service" "ecs_service" {
       }
     }
   }
-  tags = {
-    Application = "${var.ecs_service_name}"
-  }
+  tags =merge(
+    { Application = "${var.ecs_service_name}" },
+    var.tags
+  )
+
 
   lifecycle {
     ignore_changes = [task_definition, platform_version, desired_count]
