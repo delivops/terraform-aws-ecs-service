@@ -429,7 +429,7 @@ resource "aws_appautoscaling_policy" "scale_out_by_sqs_policy" {
   step_scaling_policy_configuration {
     adjustment_type          = "ChangeInCapacity"
     cooldown                 = var.sqs_auto_scaling.scale_out_cooldown
-    metric_aggregation_type  = "Sum"
+    metric_aggregation_type  = "Maximum"
     min_adjustment_magnitude = 0
 
     step_adjustment {
@@ -451,7 +451,7 @@ resource "aws_appautoscaling_policy" "scale_in_by_sqs_policy" {
   step_scaling_policy_configuration {
     adjustment_type          = "ChangeInCapacity"
     cooldown                 = var.sqs_auto_scaling.scale_in_cooldown
-    metric_aggregation_type  = "Sum"
+    metric_aggregation_type  = "Maximum"
     min_adjustment_magnitude = 0
 
     step_adjustment {
