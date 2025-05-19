@@ -332,7 +332,9 @@ resource "aws_ecs_service" "ecs_service" {
   depends_on = [aws_lb_listener_rule.rule,
     aws_lb_listener_rule.rule_additional,
     aws_alb_target_group.target_group,
-  aws_alb_target_group.target_group_additional]
+  aws_alb_target_group.target_group_additional,
+  aws_ecs_task_definition.task_definition
+  ]
 }
 
 resource "aws_appautoscaling_target" "ecs_target" {
@@ -427,7 +429,7 @@ resource "aws_appautoscaling_policy" "scale_out_by_sqs_policy" {
   step_scaling_policy_configuration {
     adjustment_type          = "ChangeInCapacity"
     cooldown                 = var.sqs_auto_scaling.scale_out_cooldown
-    metric_aggregation_type  = "Average"
+    metric_aggregation_type  = "Sum"
     min_adjustment_magnitude = 0
 
     step_adjustment {
@@ -449,7 +451,7 @@ resource "aws_appautoscaling_policy" "scale_in_by_sqs_policy" {
   step_scaling_policy_configuration {
     adjustment_type          = "ChangeInCapacity"
     cooldown                 = var.sqs_auto_scaling.scale_in_cooldown
-    metric_aggregation_type  = "Average"
+    metric_aggregation_type  = "Sum"
     min_adjustment_magnitude = 0
 
     step_adjustment {
