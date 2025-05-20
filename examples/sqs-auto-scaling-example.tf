@@ -7,12 +7,14 @@ module "sqs_ecs_service" {
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
   sqs_auto_scaling = {
-    enabled            = true
-    min_replicas       = 1
-    max_replicas       = 5
-    scale_in_cooldown  = 60
-    scale_out_cooldown = 60
-    queue_name         = "my-queue"
+    enabled                      = true
+    min_replicas                 = 1
+    max_replicas                 = 5
+    scale_in_cooldown            = 60
+    scale_out_cooldown           = 60
+    queue_name                   = "my-queue"
+    scale_in_datapoints_to_alarm = 15
+
   }
 }
 

@@ -164,9 +164,9 @@ variable "deployment" {
 
 }
 variable "capacity_provider_strategy" {
-description = "name of the capacity"
-type = string
-default = ""
+  description = "name of the capacity"
+  type        = string
+  default     = ""
 }
 
 variable "cpu_auto_scaling" {
@@ -199,20 +199,23 @@ variable "sqs_auto_scaling" {
   description = "value for auto scaling"
   default     = {}
   type = object({
-    enabled             = optional(bool, false)
-    min_replicas        = optional(number, 1)
-    max_replicas        = optional(number, 1)
-    scale_in_queue_name = optional(string, "")
-    scale_out_queue_name = optional(string, "")
-    queue_name          = optional(string, "")
-    scale_in_step       = optional(number, 1)
-    scale_out_step      = optional(number, 1)
-    scale_in_cooldown   = optional(number, 300)
-    scale_out_cooldown  = optional(number, 300)
-    scale_in_threshold  = optional(number, 10)
-    scale_out_threshold = optional(number, 100)
-    scale_out_interval  = optional(number, 10)
-    scale_in_interval   = optional(number, 10)
+    enabled                       = optional(bool, false)
+    min_replicas                  = optional(number, 1)
+    max_replicas                  = optional(number, 1)
+    scale_in_queue_name           = optional(string, "")
+    scale_out_queue_name          = optional(string, "")
+    queue_name                    = optional(string, "")
+    scale_in_step                 = optional(number, 1)
+    scale_out_step                = optional(number, 1)
+    scale_in_cooldown             = optional(number, 300)
+    scale_out_cooldown            = optional(number, 300)
+    scale_in_threshold            = optional(number, 0)
+    scale_out_threshold           = optional(number, 1)
+    scale_out_interval            = optional(number, 10)
+    scale_in_interval             = optional(number, 10)
+    scale_in_datapoints_to_alarm  = optional(number, 1)
+    scale_out_datapoints_to_alarm = optional(number, 1)
+    queue_metric_name             = optional(string, "NumberOfMessagesSent")
   })
 
 }
