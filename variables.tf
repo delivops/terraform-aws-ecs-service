@@ -69,6 +69,7 @@ variable "service_connect" {
     enabled = optional(bool, false)
     type    = optional(string, "client-only")
     port    = optional(number, 80)
+    name    = optional(string, "service")
     additional_ports = optional(list(object({
       name = string
       port = number

@@ -299,10 +299,10 @@ resource "aws_ecs_service" "ecs_service" {
         for_each = contains(["client-server"], var.service_connect.type) ? [1] : []
         content {
           port_name      = "default"
-          discovery_name = var.ecs_service_name
+          discovery_name = var.service_connect.name
           client_alias {
             port     = var.service_connect.port
-            dns_name = var.ecs_service_name
+            dns_name = var.service_connect.name
           }
         }
       }
@@ -311,10 +311,10 @@ resource "aws_ecs_service" "ecs_service" {
         for_each = var.service_connect.type == "client-server" && length(var.service_connect.additional_ports) > 0 ? var.service_connect.additional_ports : []
         content {
           port_name      = service.value.name
-          discovery_name = "${var.ecs_service_name}-${service.value.name}"
+          discovery_name = "${var.service_connect.name}-${service.value.name}"
           client_alias {
             port     = service.value.port
-            dns_name = var.ecs_service_name
+            dns_name = var.service_connect.name
           }
         }
       }
