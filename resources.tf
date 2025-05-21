@@ -4,12 +4,13 @@ resource "aws_cloudwatch_log_group" "ecs_log_group" {
 }
 
 resource "aws_alb_target_group" "target_group" {
-  count       = var.application_load_balancer.enabled ? 1 : 0
-  name        = replace("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}-tg", "_", "-")
-  port        = var.application_load_balancer.container_port
-  protocol    = var.application_load_balancer.protocol
-  vpc_id      = var.vpc_id
-  target_type = "ip"
+  count                = var.application_load_balancer.enabled ? 1 : 0
+  name                 = replace("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}-tg", "_", "-")
+  port                 = var.application_load_balancer.container_port
+  protocol             = var.application_load_balancer.protocol
+  vpc_id               = var.vpc_id
+  target_type          = "ip"
+  deregistration_delay = var.application_load_balancer.deregister_deregistration_delay
 
   health_check {
     healthy_threshold   = var.application_load_balancer.health_check_threshold_healthy
@@ -29,11 +30,12 @@ resource "aws_alb_target_group" "target_group_additional" {
     if alb.enabled && try(alb.action_type, "forward") == "forward"
   }
 
-  name        = replace("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}-tg-${each.key}", "_", "-")
-  port        = each.value.container_port
-  protocol    = each.value.protocol
-  vpc_id      = var.vpc_id
-  target_type = "ip"
+  name                 = replace("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}-tg-${each.key}", "_", "-")
+  port                 = each.value.container_port
+  protocol             = each.value.protocol
+  vpc_id               = var.vpc_id
+  target_type          = "ip"
+  deregistration_delay = each.value.deregister_deregistration_delay
 
   health_check {
     healthy_threshold   = each.value.health_check_threshold_healthy

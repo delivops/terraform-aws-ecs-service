@@ -33,6 +33,7 @@ variable "application_load_balancer" {
     stickiness                       = optional(bool, false)
     stickiness_ttl                   = optional(number, 300)
     action_type                      = optional(string, "forward")
+    deregister_deregistration_delay  = optional(number, 60)
   })
   default = {}
 }
@@ -56,6 +57,7 @@ variable "additional_load_balancers" {
     stickiness                       = optional(bool, false)
     stickiness_ttl                   = optional(number, 300)
     action_type                      = optional(string, "forward")
+    deregister_deregistration_delay  = optional(number, 60)
   }))
   default = []
 }
