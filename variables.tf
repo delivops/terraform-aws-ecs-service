@@ -58,6 +58,8 @@ variable "additional_load_balancers" {
     health_check_protocol            = optional(string, "HTTP")
     stickiness                       = optional(bool, false)
     stickiness_ttl                   = optional(number, 300)
+    stickiness_type                  = optional(string, "app_cookie")
+    cookie_name                      = optional(string, "")
     action_type                      = optional(string, "forward")
     deregister_deregistration_delay  = optional(number, 60)
   }))
