@@ -12,6 +12,17 @@ resource "aws_alb_target_group" "target_group" {
   target_type          = "ip"
   deregistration_delay = var.application_load_balancer.deregister_deregistration_delay
 
+  dynamic "stickiness" {
+    for_each = var.application_load_balancer.stickiness ? [1] : []
+    content {
+      cookie_duration = var.application_load_balancer.stickiness_ttl
+      cookie_name     = var.application_load_balancer.cookie_name
+      type            = var.application_load_balancer.stickiness_type
+
+    }
+
+  }
+
   health_check {
     healthy_threshold   = var.application_load_balancer.health_check_threshold_healthy
     interval            = var.application_load_balancer.health_check_interval_sec

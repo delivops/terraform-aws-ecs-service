@@ -13,6 +13,9 @@ module "single_alb_ecs_service" {
     host              = "demo.internal.delivops.com"
     path              = "/*"
     health_check_path = "/health"
+    stickiness        = true
+    stickiness_ttl    = 300
+    cookie_name       = "my_cookie"
   }
 }
 
