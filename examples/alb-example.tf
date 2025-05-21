@@ -15,7 +15,6 @@ module "single_alb_ecs_service" {
     health_check_path = "/health"
     stickiness        = true
     stickiness_ttl    = 300
-    cookie_name       = "my_cookie"
   }
 }
 

@@ -47,6 +47,15 @@ resource "aws_alb_target_group" "target_group_additional" {
   vpc_id               = var.vpc_id
   target_type          = "ip"
   deregistration_delay = each.value.deregister_deregistration_delay
+  dynamic "stickiness" {
+    for_each = each.value.stickiness ? [1] : []
+    content {
+      cookie_duration = each.value.stickiness_ttl
+      cookie_name     = each.value.cookie_name
+      type            = each.value.stickiness_type
+    }
+
+  }
 
   health_check {
     healthy_threshold   = each.value.health_check_threshold_healthy
