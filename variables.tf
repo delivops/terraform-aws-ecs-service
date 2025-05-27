@@ -219,10 +219,11 @@ variable "sqs_auto_scaling" {
     scale_in_threshold            = optional(number, 0)
     scale_out_threshold           = optional(number, 1)
     scale_out_interval            = optional(number, 10)
-    scale_in_interval             = optional(number, 10)
+    scale_in_interval             = optional(number, 60)
     scale_in_datapoints_to_alarm  = optional(number, 1)
     scale_out_datapoints_to_alarm = optional(number, 1)
-    queue_metric_name             = optional(string, "NumberOfMessagesSent")
+    scale_in_metric_name          = optional(string, "ApproximateNumberOfMessagesVisible")
+    scale_out_metric_name         = optional(string, "NumberOfMessagesSent")
   })
 
 }

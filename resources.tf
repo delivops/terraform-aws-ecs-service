@@ -499,7 +499,7 @@ resource "aws_cloudwatch_metric_alarm" "out_sqs_auto_scaling" {
   treat_missing_data  = "ignore"
 
   namespace   = "AWS/SQS"
-  metric_name = var.sqs_auto_scaling.queue_metric_name
+  metric_name = var.sqs_auto_scaling.scale_out_metric_name
   period      = var.sqs_auto_scaling.scale_out_interval
   statistic   = "Maximum"
   dimensions = {
@@ -524,7 +524,7 @@ resource "aws_cloudwatch_metric_alarm" "in_sqs_auto_scaling" {
   treat_missing_data  = "ignore"
 
   namespace   = "AWS/SQS"
-  metric_name = var.sqs_auto_scaling.queue_metric_name
+  metric_name = var.sqs_auto_scaling.scale_in_metric_name
   period      = var.sqs_auto_scaling.scale_in_interval
   statistic   = "Maximum"
   dimensions = {
