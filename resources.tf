@@ -326,6 +326,10 @@ resource "aws_ecs_service" "ecs_service" {
             port     = var.service_connect.port
             dns_name = var.service_connect.name
           }
+          timeout{
+                     idle_timeout_seconds        = 0
+                     per_request_timeout_seconds = 120
+          }
         }
       }
 
