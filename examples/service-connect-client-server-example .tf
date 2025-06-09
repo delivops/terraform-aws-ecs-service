@@ -9,6 +9,8 @@ module "client_server_ecs_service" {
   service_connect = {
     enabled = true
     type    = "client-server"
+    timeout = 60
+    name    = "app-demo"
   }
 
 }
