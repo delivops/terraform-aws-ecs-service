@@ -328,7 +328,7 @@ resource "aws_ecs_service" "ecs_service" {
           }
           timeout{
                      idle_timeout_seconds        = 0
-                     per_request_timeout_seconds = 120
+                     per_request_timeout_seconds = var.service_connect.timeout
           }
         }
       }
@@ -341,6 +341,10 @@ resource "aws_ecs_service" "ecs_service" {
           client_alias {
             port     = service.value.port
             dns_name = var.service_connect.name
+          }
+          timeout{
+                     idle_timeout_seconds        = 0
+                     per_request_timeout_seconds = var.service_connect.timeout
           }
         }
       }

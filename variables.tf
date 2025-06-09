@@ -76,6 +76,7 @@ variable "service_connect" {
     type    = optional(string, "client-only")
     port    = optional(number, 80)
     name    = optional(string, "service")
+    timeout = optional(number, 15)
     additional_ports = optional(list(object({
       name = string
       port = number
