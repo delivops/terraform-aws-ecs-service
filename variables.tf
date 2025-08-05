@@ -35,6 +35,7 @@ variable "application_load_balancer" {
     cookie_name                      = optional(string, "")
     stickiness_type                  = optional(string, "app_cookie")
     action_type                      = optional(string, "forward")
+    target_group_name                = optional(string, "")
     deregister_deregistration_delay  = optional(number, 60)
   })
   default = {}
@@ -61,6 +62,7 @@ variable "additional_load_balancers" {
     stickiness_type                  = optional(string, "app_cookie")
     cookie_name                      = optional(string, "")
     action_type                      = optional(string, "forward")
+    target_group_name                = optional(string, "")
     deregister_deregistration_delay  = optional(number, 60)
   }))
   default = []

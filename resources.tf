@@ -5,7 +5,7 @@ resource "aws_cloudwatch_log_group" "ecs_log_group" {
 
 resource "aws_alb_target_group" "target_group" {
   count                = var.application_load_balancer.enabled ? 1 : 0
-  name                 = replace("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}-tg", "_", "-")
+  name                 = local.main_target_group_name
   port                 = var.application_load_balancer.container_port
   protocol             = var.application_load_balancer.protocol
   vpc_id               = var.vpc_id
@@ -41,7 +41,7 @@ resource "aws_alb_target_group" "target_group_additional" {
     if alb.enabled && try(alb.action_type, "forward") == "forward"
   }
 
-  name                 = replace("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}-tg-${each.key}", "_", "-")
+  name                 = local.additional_target_group_names[each.key]
   port                 = each.value.container_port
   protocol             = each.value.protocol
   vpc_id               = var.vpc_id
