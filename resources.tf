@@ -201,25 +201,25 @@ resource "aws_ecs_task_definition" "task_definition" {
   requires_compatibilities = [var.ecs_launch_type]
   cpu                      = var.ecs_task_cpu
   memory                   = var.ecs_task_memory
+  task_role_arn            = var.initial_role != "" ? "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.initial_role}" : null
+  execution_role_arn       = var.initial_role != "" ? "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.initial_role}" : null
   container_definitions = jsonencode([
     {
       name      = var.container_name
       image     = var.container_image
       essential = true
-      environment = [
-        { name = "NVIDIA_DRIVER_CAPABILITIES", value = "all" }
-      ]
+
       portMappings = flatten([
+        # Primary port mapping - ALB takes priority, otherwise Service Connect
         var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward" ? [
           {
-            name          = "alb"
+            name          = "default"
             containerPort = var.application_load_balancer.container_port
             hostPort      = var.application_load_balancer.container_port
             protocol      = "tcp"
             appProtocol   = "http"
           }
-        ] : [],
-        var.service_connect.enabled ? [
+        ] : var.service_connect.enabled && !(var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward") ? [
           {
             name          = "default"
             containerPort = var.service_connect.port
@@ -228,6 +228,7 @@ resource "aws_ecs_task_definition" "task_definition" {
             appProtocol   = "http"
           }
         ] : [],
+        # Additional Service Connect ports
         [
           for name, port_config in var.service_connect.additional_ports : {
             name          = port_config.name
@@ -620,5 +621,41 @@ module "ecr" {
   tags = {
     Application = "${var.ecs_service_name}"
     Environment = "None"
+  }
+}
+
+###############################################################################
+# ROUTE 53 RECORDS
+###############################################################################
+
+# Route 53 record for main ALB
+resource "aws_route53_record" "main_alb_record" {
+  count   = var.application_load_balancer.enabled && var.application_load_balancer.route_53_host_zone_id != "" && var.application_load_balancer.host != "" ? 1 : 0
+  zone_id = var.application_load_balancer.route_53_host_zone_id
+  name    = var.application_load_balancer.host
+  type    = "A"
+
+  alias {
+    name                   = data.aws_lb.main_alb[0].dns_name
+    zone_id                = data.aws_lb.main_alb[0].zone_id
+    evaluate_target_health = true
+  }
+}
+
+# Route 53 records for additional ALBs
+resource "aws_route53_record" "additional_alb_records" {
+  for_each = {
+    for idx, alb in var.additional_load_balancers : idx => alb
+    if alb.enabled && alb.route_53_host_zone_id != "" && alb.host != ""
+  }
+
+  zone_id = each.value.route_53_host_zone_id
+  name    = each.value.host
+  type    = "A"
+
+  alias {
+    name                   = data.aws_lb.additional_albs[each.key].dns_name
+    zone_id                = data.aws_lb.additional_albs[each.key].zone_id
+    evaluate_target_health = true
   }
 }
