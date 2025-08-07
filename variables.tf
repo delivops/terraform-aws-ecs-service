@@ -26,9 +26,9 @@ variable "application_load_balancer" {
     health_check_path                = optional(string, "/health")
     health_check_matcher             = optional(string, "200")
     health_check_interval_sec        = optional(number, 30)
-    health_check_timeout_sec         = optional(number, 5)
-    health_check_threshold_healthy   = optional(number, 3)
-    health_check_threshold_unhealthy = optional(number, 3)
+    health_check_timeout_sec         = optional(number, 10)
+    health_check_threshold_healthy   = optional(number, 2)
+    health_check_threshold_unhealthy = optional(number, 5)
     health_check_protocol            = optional(string, "HTTP")
     stickiness                       = optional(bool, false)
     stickiness_ttl                   = optional(number, 300)
@@ -37,6 +37,7 @@ variable "application_load_balancer" {
     action_type                      = optional(string, "forward")
     target_group_name                = optional(string, "")
     deregister_deregistration_delay  = optional(number, 60)
+    route_53_host_zone_id            = optional(string, "")
   })
   default = {}
 }
@@ -53,9 +54,9 @@ variable "additional_load_balancers" {
     health_check_path                = optional(string, "/health")
     health_check_matcher             = optional(string, "200")
     health_check_interval_sec        = optional(number, 30)
-    health_check_timeout_sec         = optional(number, 5)
-    health_check_threshold_healthy   = optional(number, 3)
-    health_check_threshold_unhealthy = optional(number, 3)
+    health_check_timeout_sec         = optional(number, 10)
+    health_check_threshold_healthy   = optional(number, 2)
+    health_check_threshold_unhealthy = optional(number, 5)
     health_check_protocol            = optional(string, "HTTP")
     stickiness                       = optional(bool, false)
     stickiness_ttl                   = optional(number, 300)
@@ -64,6 +65,7 @@ variable "additional_load_balancers" {
     action_type                      = optional(string, "forward")
     target_group_name                = optional(string, "")
     deregister_deregistration_delay  = optional(number, 60)
+    route_53_host_zone_id            = optional(string, "")
   }))
   default = []
 }
@@ -266,4 +268,10 @@ variable "tags" {
   description = "A map of tags to add to all resources"
   type        = map(string)
   default     = {}
+}
+
+variable "initial_role" {
+  description = "Name of the IAM role to use for both task role and execution role"
+  type        = string
+  default     = ""
 }

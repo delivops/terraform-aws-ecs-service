@@ -25,3 +25,9 @@ variable "listener_arn" {
   default     = ""
 
 }
+
+variable "route_53_zone_id" {
+  description = "Route 53 hosted zone ID for DNS record creation"
+  type        = string
+  default     = ""
+}

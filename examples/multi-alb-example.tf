@@ -13,12 +13,12 @@ module "alb_ecs_service" {
     host              = "demo.internal.delivops.com"
     path              = "/*"
     health_check_path = "/health"
-    stickiness        = true
-    stickiness_ttl    = 3003
+
   }
   additional_load_balancers = [
     {
       enabled           = true
+      container_port    = 8000
       listener_arn      = var.listener_arn
       host              = "demo123.internal.delivops.com"
       path              = "/*"
