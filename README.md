@@ -1,4 +1,4 @@
-![image info](logo.jpeg)
+[![DelivOps banner](https://raw.githubusercontent.com/delivops/.github/main/images/banner.png?raw=true)](https://delivops.com)
 
 # AWS ECS Service Terraform Module
 
@@ -12,6 +12,7 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 - Auto-scaling capabilities based on CPU and Memory utilization
 - CloudWatch logging integration
 - Deployment circuit breaker and CloudWatch alarms integration
+- DNS record management for both Route53 and Cloudflare
 - ARM64 architecture support
 
 ## Resources Created
@@ -23,6 +24,8 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 - CloudWatch Log Group
 - Auto Scaling Target and Policies
 - CloudWatch Alarms (optional)
+- Route53 DNS Records (optional)
+- Cloudflare DNS Records (optional)
 
 ## Usage
 
@@ -68,6 +71,96 @@ module "alb_ecs_service" {
     path              = "/*"
     health_check_path = "/health"
   }
+}
+```
+
+```python
+
+################################################################################
+# AWS ECS-SERVICE (with ALB and Route53 DNS)
+################################################################################
+
+module "alb_ecs_service_with_route53" {
+  source  = "delivops/ecs-service/aws"
+  version = "xxx"
+  ecs_cluster_name   = var.cluster_name
+  ecs_service_name   = "route53-demo"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
+  security_group_ids = var.security_group_ids
+
+  application_load_balancer = {
+    enabled               = true
+    container_port        = 80
+    listener_arn          = var.listener_arn
+    host                  = "api.example.com"
+    path                  = "/*"
+    health_check_path     = "/health"
+    route_53_host_zone_id = var.route_53_zone_id
+  }
+}
+```
+
+```python
+
+################################################################################
+# AWS ECS-SERVICE (with ALB and Cloudflare DNS)
+################################################################################
+
+module "alb_ecs_service_with_cloudflare" {
+  source  = "delivops/ecs-service/aws"
+  version = "xxx"
+  ecs_cluster_name   = var.cluster_name
+  ecs_service_name   = "cloudflare-demo"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
+  security_group_ids = var.security_group_ids
+
+  application_load_balancer = {
+    enabled            = true
+    container_port     = 80
+    listener_arn       = var.listener_arn
+    host               = "api.example.com"
+    path               = "/*"
+    health_check_path  = "/health"
+    cloudflare_zone_id = var.cloudflare_zone_id
+    cloudflare_proxied = true  # Enable Cloudflare proxy (default: true)
+    cloudflare_ttl     = 300   # TTL in seconds (ignored when proxied=true)
+  }
+}
+```
+
+## DNS Configuration
+
+This module supports automatic DNS record creation for both Route53 and Cloudflare:
+
+### Route53 DNS Records
+- Set `route_53_host_zone_id` to your Route53 hosted zone ID
+- The module creates an A record with an alias to the load balancer
+- Supports both main and additional load balancers
+
+### Cloudflare DNS Records
+- Set `cloudflare_zone_id` to your Cloudflare zone ID
+- The module creates a CNAME record pointing to the load balancer DNS name
+- Use `cloudflare_proxied = true` to enable Cloudflare's proxy features (default)
+- Use `cloudflare_proxied = false` for DNS-only mode
+- Requires the Cloudflare provider to be configured with API credentials
+
+### Dual DNS Setup
+You can configure both Route53 and Cloudflare DNS records for the same service, which is useful for:
+- Migration scenarios
+- Multi-cloud DNS strategies
+- Redundancy and failover
+
+### Provider Configuration
+When using Cloudflare DNS, ensure you have the Cloudflare provider configured:
+
+```hcl
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
+  # or use email + api_key
+  # email   = var.cloudflare_email
+  # api_key = var.cloudflare_api_key
 }
 ```
 
