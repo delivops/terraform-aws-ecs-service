@@ -189,9 +189,9 @@ This module is released under the MIT License.
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.8.0 |
-| <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | 4.52.1 |
-| <a name="provider_external"></a> [external](#provider\_external) | 2.3.5 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.94.1 |
+| <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | 5.8.2 |
+| <a name="provider_external"></a> [external](#provider\_external) | 2.3.4 |
 
 ## Modules
 

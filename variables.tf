@@ -281,3 +281,10 @@ variable "initial_role" {
   type        = string
   default     = ""
 }
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token. Only needed when using cloudflare features"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

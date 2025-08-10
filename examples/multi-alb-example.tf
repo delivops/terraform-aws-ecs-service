@@ -27,3 +27,9 @@ module "alb_ecs_service" {
     }
   ]
 }
+
+
+
+//if not put the listener_arn, the plan will failed.check "" {
+//create 5 resources + len(var.additional_load_balancers)*2
+// expected: 1 port mapping in the task definition
