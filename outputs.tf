@@ -31,14 +31,14 @@ output "cloudflare_records" {
   description = "Cloudflare DNS records created"
   value = {
     main_record = var.application_load_balancer.enabled && var.application_load_balancer.cloudflare_zone_id != "" && var.application_load_balancer.host != "" ? {
-      name    = cloudflare_dns_record.main_alb_record[0].name
-      content = cloudflare_dns_record.main_alb_record[0].content
-      zone_id = cloudflare_dns_record.main_alb_record[0].zone_id
-      proxied = cloudflare_dns_record.main_alb_record[0].proxied
-      type    = cloudflare_dns_record.main_alb_record[0].type
+      name    = cloudflare_record.main_alb_record[0].name
+      content = cloudflare_record.main_alb_record[0].content
+      zone_id = cloudflare_record.main_alb_record[0].zone_id
+      proxied = cloudflare_record.main_alb_record[0].proxied
+      type    = cloudflare_record.main_alb_record[0].type
     } : null
     additional_records = {
-      for idx, record in cloudflare_dns_record.additional_alb_records : idx => {
+      for idx, record in cloudflare_record.additional_alb_records : idx => {
         name    = record.name
         content = record.content
         zone_id = record.zone_id
