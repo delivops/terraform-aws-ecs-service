@@ -6,6 +6,9 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 
 ## Features
 
+- **Clean Modular Design**: Main ECS module + optional DNS submodules
+- **No Code Duplication**: Cloudflare DNS handled by separate submodule
+- **Truly Optional DNS**: Cloudflare provider only required when using DNS module
 - Creates an ECS service with Fargate launch type
 - Configurable load balancer target group with health checks
 - Support for host-based and path-based routing rules
@@ -28,6 +31,107 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 - Cloudflare DNS Records (optional)
 
 ## Usage
+
+### Recommended: Clean Two-Module Approach (No Code Duplication)
+
+For the cleanest architecture, use the main ECS module and optionally add Cloudflare DNS with a separate module:
+
+```hcl
+################################################################################
+# Step 1: Create ECS Service (Main Module)
+################################################################################
+
+module "ecs_service" {
+  source = "delivops/ecs-service/aws"
+  version = "xxx"
+
+  ecs_cluster_name   = var.cluster_name
+  ecs_service_name   = "my-app"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
+  security_group_ids = var.security_group_ids
+
+  application_load_balancer = {
+    enabled           = true
+    container_port    = 80
+    listener_arn      = var.listener_arn
+    host              = "api.example.com"
+    path              = "/*"
+    health_check_path = "/"
+    # Route 53 can still be used here if needed
+    route_53_host_zone_id = var.route_53_zone_id
+  }
+}
+
+################################################################################
+# Step 2: Optional Cloudflare DNS (Only if needed)
+################################################################################
+
+module "cloudflare_dns" {
+  count  = var.cloudflare_zone_id != "" ? 1 : 0
+  source = "delivops/ecs-service/aws//modules/cloudflare-dns"
+  
+  ecs_service_name = "my-app"
+  
+  records = [
+    {
+      name    = "api.example.com"
+      target  = module.ecs_service.alb_dns_info.dns_name
+      zone_id = var.cloudflare_zone_id
+      proxied = true
+      comment = "Main API endpoint"
+    }
+  ]
+}
+```
+
+### Alternative: Direct Main Module Usage (ECS Only)
+
+If you don't need Cloudflare DNS, just use the main module:
+
+```hcl
+################################################################################
+# AWS ECS-SERVICE (ECS Only - No DNS)
+################################################################################
+
+module "my_service" {
+  source = "delivops/ecs-service/aws"
+  version = "xxx"
+
+  ecs_cluster_name   = var.cluster_name
+  ecs_service_name   = "my-app"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
+  security_group_ids = var.security_group_ids
+
+  container_image = "nginx:latest"
+  container_name  = "web"
+
+  application_load_balancer = {
+    enabled           = true
+    container_port    = 80
+    listener_arn      = var.listener_arn
+    host              = "my-app.example.com"
+    path              = "/*"
+    health_check_path = "/"
+    
+    # Optional: Add these lines to enable Cloudflare DNS
+    # Remove or set cloudflare_zone_id = "" to disable
+    cloudflare_zone_id = var.cloudflare_zone_id
+    cloudflare_proxied = true
+    cloudflare_ttl     = 300
+  }
+
+  tags = {
+    Environment = "production"
+    Service     = "web-app"
+  }
+}
+```
+
+### Alternative: Main Module Only
+
+You can also use the main module directly if you don't need Cloudflare DNS:
 
 ```python
 

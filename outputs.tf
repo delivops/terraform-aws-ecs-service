@@ -48,3 +48,12 @@ output "cloudflare_records" {
     }
   }
 }
+
+output "alb_dns_info" {
+  description = "ALB DNS information for Cloudflare module"
+  value = var.application_load_balancer.enabled ? {
+    dns_name = try(data.aws_lb.main_alb[0].dns_name, null)
+    zone_id  = try(data.aws_lb.main_alb[0].zone_id, null)
+    arn      = try(data.aws_lb.main_alb[0].arn, null)
+  } : null
+}
