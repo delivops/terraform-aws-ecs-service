@@ -1,7 +1,21 @@
 # Example showing various DNS configurations with the ECS service module
 
-# Provider configuration for Cloudflare
+terraform {
+  required_providers {
+    cloudflare = {
+      source = "cloudflare/cloudflare"
+    }
+  }
+}
+
+# Default Cloudflare provider (dummy token - used by modules without provider override)
 provider "cloudflare" {
+  api_token = "1234567890abcdef1234567890abcdef12345678"
+}
+
+# Real Cloudflare provider configuration (for modules that need real credentials)
+provider "cloudflare" {
+  alias     = "real"
   api_token = var.cloudflare_api_token
 }
 
@@ -26,7 +40,7 @@ module "ecs_service_route53_only" {
   }
 }
 
-# Example 2: Service with Cloudflare DNS only (proxied)
+# Example 2: Service with Cloudflare DNS only (proxied) - Uses REAL API token
 module "ecs_service_cloudflare_proxied" {
   source             = "../"
   ecs_cluster_name   = var.cluster_name
@@ -35,6 +49,10 @@ module "ecs_service_cloudflare_proxied" {
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
   initial_role       = aws_iam_role.ecs_task_role.name
+
+  providers = {
+    cloudflare = cloudflare.real
+  }
 
   application_load_balancer = {
     enabled            = true
@@ -48,7 +66,7 @@ module "ecs_service_cloudflare_proxied" {
   }
 }
 
-# Example 3: Service with Cloudflare DNS only (DNS-only mode)
+# Example 3: Service with Cloudflare DNS only (DNS-only mode) - Uses DUMMY token (no provider override)
 module "ecs_service_cloudflare_dns_only" {
   source             = "../"
   ecs_cluster_name   = var.cluster_name
@@ -57,6 +75,8 @@ module "ecs_service_cloudflare_dns_only" {
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
   initial_role       = aws_iam_role.ecs_task_role.name
+
+  # No providers block = uses default provider with dummy token
 
   application_load_balancer = {
     enabled            = true
@@ -141,43 +161,14 @@ variable "cloudflare_zone_id" {
   type        = string
 }
 
-variable "route_53_zone_id" {
-  description = "Route53 hosted zone ID"
-  type        = string
-}
-
 variable "public_listener_arn" {
   description = "Public ALB listener ARN"
   type        = string
+  default = ""
 }
 
 variable "internal_listener_arn" {
   description = "Internal ALB listener ARN"
   type        = string
-}
-
-# Common variables (should be defined in examples/variables.tf)
-variable "cluster_name" {
-  description = "ECS cluster name"
-  type        = string
-}
-
-variable "vpc_id" {
-  description = "VPC ID"
-  type        = string
-}
-
-variable "subnet_ids" {
-  description = "Subnet IDs"
-  type        = list(string)
-}
-
-variable "security_group_ids" {
-  description = "Security group IDs"
-  type        = list(string)
-}
-
-variable "listener_arn" {
-  description = "ALB listener ARN"
-  type        = string
+  default = ""
 }
