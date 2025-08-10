@@ -8,15 +8,15 @@ module "ecs_service_with_cloudflare" {
   initial_role       = aws_iam_role.ecs_task_role.name
 
   application_load_balancer = {
-    enabled              = true
-    container_port       = 80
-    listener_arn         = var.listener_arn
-    host                 = "api.example.com"           # The domain name you want
-    path                 = "/*"
-    health_check_path    = "/"                         # Use root path for nginx
-    cloudflare_zone_id   = var.cloudflare_zone_id     # Cloudflare zone ID
-    cloudflare_proxied   = true                        # Enable Cloudflare proxy (default: true)
-    cloudflare_ttl       = 300                         # TTL in seconds (ignored when proxied=true)
+    enabled            = true
+    container_port     = 80
+    listener_arn       = var.listener_arn
+    host               = "api.example.com" # The domain name you want
+    path               = "/*"
+    health_check_path  = "/"                    # Use root path for nginx
+    cloudflare_zone_id = var.cloudflare_zone_id # Cloudflare zone ID
+    cloudflare_proxied = true                   # Enable Cloudflare proxy (default: true)
+    cloudflare_ttl     = 300                    # TTL in seconds (ignored when proxied=true)
   }
 }
 
@@ -37,9 +37,9 @@ module "ecs_service_with_dual_dns" {
     host                  = "api.example.com"
     path                  = "/*"
     health_check_path     = "/"
-    route_53_host_zone_id = var.route_53_zone_id      # Route 53 zone ID
-    cloudflare_zone_id    = var.cloudflare_zone_id    # Cloudflare zone ID
-    cloudflare_proxied    = false                      # Disable proxy for DNS-only mode
+    route_53_host_zone_id = var.route_53_zone_id   # Route 53 zone ID
+    cloudflare_zone_id    = var.cloudflare_zone_id # Cloudflare zone ID
+    cloudflare_proxied    = false                  # Disable proxy for DNS-only mode
   }
 }
 
@@ -54,14 +54,14 @@ module "ecs_service_with_mixed_dns" {
   initial_role       = aws_iam_role.ecs_task_role.name
 
   application_load_balancer = {
-    enabled               = true
-    container_port        = 80
-    listener_arn          = var.listener_arn
-    host                  = "api.example.com"
-    path                  = "/api/*"
-    health_check_path     = "/health"
-    cloudflare_zone_id    = var.cloudflare_zone_id
-    cloudflare_proxied    = true
+    enabled            = true
+    container_port     = 80
+    listener_arn       = var.listener_arn
+    host               = "api.example.com"
+    path               = "/api/*"
+    health_check_path  = "/health"
+    cloudflare_zone_id = var.cloudflare_zone_id
+    cloudflare_proxied = true
   }
 
   additional_load_balancers = [
@@ -72,7 +72,7 @@ module "ecs_service_with_mixed_dns" {
       host                  = "admin.internal.example.com"
       path                  = "/admin/*"
       health_check_path     = "/health"
-      route_53_host_zone_id = var.route_53_zone_id      # Use Route53 for internal domain
+      route_53_host_zone_id = var.route_53_zone_id # Use Route53 for internal domain
     }
   ]
 }

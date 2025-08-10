@@ -44,7 +44,7 @@ module "ecs_service_cloudflare_proxied" {
     path               = "/*"
     health_check_path  = "/health"
     cloudflare_zone_id = var.cloudflare_zone_id
-    cloudflare_proxied = true  # Enable Cloudflare proxy features
+    cloudflare_proxied = true # Enable Cloudflare proxy features
   }
 }
 
@@ -66,7 +66,7 @@ module "ecs_service_cloudflare_dns_only" {
     path               = "/*"
     health_check_path  = "/health"
     cloudflare_zone_id = var.cloudflare_zone_id
-    cloudflare_proxied = false  # DNS-only mode
+    cloudflare_proxied = false # DNS-only mode
   }
 }
 
@@ -89,7 +89,7 @@ module "ecs_service_dual_dns" {
     health_check_path     = "/health"
     route_53_host_zone_id = var.route_53_zone_id
     cloudflare_zone_id    = var.cloudflare_zone_id
-    cloudflare_proxied    = false  # Use DNS-only for dual setup
+    cloudflare_proxied    = false # Use DNS-only for dual setup
   }
 }
 
