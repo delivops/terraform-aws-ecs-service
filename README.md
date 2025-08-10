@@ -286,7 +286,6 @@ This module is released under the MIT License.
 | Name | Version |
 |------|---------|
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
-| <a name="requirement_cloudflare"></a> [cloudflare](#requirement\_cloudflare) | < 5.0 |
 | <a name="requirement_external"></a> [external](#requirement\_external) | >= 2.0 |
 
 ## Providers
@@ -294,7 +293,6 @@ This module is released under the MIT License.
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 5.94.1 |
-| <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | 5.8.2 |
 | <a name="provider_external"></a> [external](#provider\_external) | 2.3.4 |
 
 ## Modules
@@ -324,14 +322,10 @@ This module is released under the MIT License.
 | [aws_lb_listener_rule.rule_additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_route53_record.additional_alb_records](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
 | [aws_route53_record.main_alb_record](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
-| [cloudflare_record.additional_alb_records](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/record) | resource |
-| [cloudflare_record.main_alb_record](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/record) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_ecs_cluster.ecs_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecs_cluster) | data source |
 | [aws_lb.additional_albs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
-| [aws_lb.additional_albs_cloudflare](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
 | [aws_lb.main_alb](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
-| [aws_lb.main_alb_cloudflare](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [aws_service_discovery_http_namespace.namespace](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/service_discovery_http_namespace) | data source |
 | [external_external.listener_rules](https://registry.terraform.io/providers/hashicorp/external/latest/docs/data-sources/external) | data source |
@@ -371,6 +365,7 @@ This module is released under the MIT License.
 
 | Name | Description |
 |------|-------------|
+| <a name="output_alb_dns_info"></a> [alb\_dns\_info](#output\_alb\_dns\_info) | ALB DNS information for Cloudflare module |
 | <a name="output_cloudflare_records"></a> [cloudflare\_records](#output\_cloudflare\_records) | Cloudflare DNS records created |
 | <a name="output_cloudwatch_log_group_name"></a> [cloudwatch\_log\_group\_name](#output\_cloudwatch\_log\_group\_name) | n/a |
 | <a name="output_ecs_service_name"></a> [ecs\_service\_name](#output\_ecs\_service\_name) | n/a |
