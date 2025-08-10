@@ -665,7 +665,7 @@ resource "aws_route53_record" "additional_alb_records" {
 ###############################################################################
 
 # Cloudflare record for main ALB
-resource "cloudflare_dns_record" "main_alb_record" {
+resource "cloudflare_record" "main_alb_record" {
   count   = var.application_load_balancer.enabled && var.application_load_balancer.cloudflare_zone_id != "" && var.application_load_balancer.host != "" ? 1 : 0
   zone_id = var.application_load_balancer.cloudflare_zone_id
   name    = var.application_load_balancer.host
@@ -676,7 +676,7 @@ resource "cloudflare_dns_record" "main_alb_record" {
 }
 
 # Cloudflare records for additional ALBs
-resource "cloudflare_dns_record" "additional_alb_records" {
+resource "cloudflare_record" "additional_alb_records" {
   for_each = {
     for idx, alb in var.additional_load_balancers : idx => alb
     if alb.enabled && alb.cloudflare_zone_id != "" && alb.host != ""
