@@ -14,6 +14,7 @@ module "ecs_service_with_cloudflare" {
     host               = "api.example.com" # The domain name you want
     path               = "/*"
     health_check_path  = "/"                    # Use root path for nginx
+    cloudflare_api_token = var.cloudflare_api_token # Cloudflare API token
     cloudflare_zone_id = var.cloudflare_zone_id # Cloudflare zone ID
     cloudflare_proxied = true                   # Enable Cloudflare proxy (default: true)
     cloudflare_ttl     = 300                    # TTL in seconds (ignored when proxied=true)
