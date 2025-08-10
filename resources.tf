@@ -669,7 +669,7 @@ resource "cloudflare_record" "main_alb_record" {
   count   = var.application_load_balancer.enabled && var.application_load_balancer.cloudflare_zone_id != "" && var.application_load_balancer.host != "" ? 1 : 0
   zone_id = var.application_load_balancer.cloudflare_zone_id
   name    = var.application_load_balancer.host
-  content = data.aws_lb.main_alb_cloudflare[0].dns_name
+  value = data.aws_lb.main_alb_cloudflare[0].dns_name
   type    = "CNAME"
   ttl     = var.application_load_balancer.cloudflare_proxied ? 1 : var.application_load_balancer.cloudflare_ttl
   proxied = var.application_load_balancer.cloudflare_proxied
@@ -684,7 +684,7 @@ resource "cloudflare_record" "additional_alb_records" {
 
   zone_id = each.value.cloudflare_zone_id
   name    = each.value.host
-  content = data.aws_lb.additional_albs_cloudflare[each.key].dns_name
+  value   = data.aws_lb.additional_albs_cloudflare[each.key].dns_name
   type    = "CNAME"
   ttl     = each.value.cloudflare_proxied ? 1 : each.value.cloudflare_ttl
   proxied = each.value.cloudflare_proxied
