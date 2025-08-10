@@ -1,4 +1,4 @@
-![image info](logo.jpeg)
+[![DelivOps banner](https://raw.githubusercontent.com/delivops/.github/main/images/banner.png?raw=true)](https://delivops.com)
 
 # AWS ECS Service Terraform Module
 
@@ -12,6 +12,7 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 - Auto-scaling capabilities based on CPU and Memory utilization
 - CloudWatch logging integration
 - Deployment circuit breaker and CloudWatch alarms integration
+- DNS record management for both Route53 and Cloudflare
 - ARM64 architecture support
 
 ## Resources Created
@@ -23,6 +24,8 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 - CloudWatch Log Group
 - Auto Scaling Target and Policies
 - CloudWatch Alarms (optional)
+- Route53 DNS Records (optional)
+- Cloudflare DNS Records (optional)
 
 ## Usage
 
@@ -71,6 +74,96 @@ module "alb_ecs_service" {
 }
 ```
 
+```python
+
+################################################################################
+# AWS ECS-SERVICE (with ALB and Route53 DNS)
+################################################################################
+
+module "alb_ecs_service_with_route53" {
+  source  = "delivops/ecs-service/aws"
+  version = "xxx"
+  ecs_cluster_name   = var.cluster_name
+  ecs_service_name   = "route53-demo"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
+  security_group_ids = var.security_group_ids
+
+  application_load_balancer = {
+    enabled               = true
+    container_port        = 80
+    listener_arn          = var.listener_arn
+    host                  = "api.example.com"
+    path                  = "/*"
+    health_check_path     = "/health"
+    route_53_host_zone_id = var.route_53_zone_id
+  }
+}
+```
+
+```python
+
+################################################################################
+# AWS ECS-SERVICE (with ALB and Cloudflare DNS)
+################################################################################
+
+module "alb_ecs_service_with_cloudflare" {
+  source  = "delivops/ecs-service/aws"
+  version = "xxx"
+  ecs_cluster_name   = var.cluster_name
+  ecs_service_name   = "cloudflare-demo"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
+  security_group_ids = var.security_group_ids
+
+  application_load_balancer = {
+    enabled            = true
+    container_port     = 80
+    listener_arn       = var.listener_arn
+    host               = "api.example.com"
+    path               = "/*"
+    health_check_path  = "/health"
+    cloudflare_zone_id = var.cloudflare_zone_id
+    cloudflare_proxied = true  # Enable Cloudflare proxy (default: true)
+    cloudflare_ttl     = 300   # TTL in seconds (ignored when proxied=true)
+  }
+}
+```
+
+## DNS Configuration
+
+This module supports automatic DNS record creation for both Route53 and Cloudflare:
+
+### Route53 DNS Records
+- Set `route_53_host_zone_id` to your Route53 hosted zone ID
+- The module creates an A record with an alias to the load balancer
+- Supports both main and additional load balancers
+
+### Cloudflare DNS Records
+- Set `cloudflare_zone_id` to your Cloudflare zone ID
+- The module creates a CNAME record pointing to the load balancer DNS name
+- Use `cloudflare_proxied = true` to enable Cloudflare's proxy features (default)
+- Use `cloudflare_proxied = false` for DNS-only mode
+- Requires the Cloudflare provider to be configured with API credentials
+
+### Dual DNS Setup
+You can configure both Route53 and Cloudflare DNS records for the same service, which is useful for:
+- Migration scenarios
+- Multi-cloud DNS strategies
+- Redundancy and failover
+
+### Provider Configuration
+When using Cloudflare DNS, ensure you have the Cloudflare provider configured:
+
+```hcl
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
+  # or use email + api_key
+  # email   = var.cloudflare_email
+  # api_key = var.cloudflare_api_key
+}
+```
+
 ## Notes
 
 - The module uses ARM64 architecture by default
@@ -86,13 +179,18 @@ This module is released under the MIT License.
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
-No requirements.
+| Name | Version |
+|------|---------|
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
+| <a name="requirement_cloudflare"></a> [cloudflare](#requirement\_cloudflare) | >= 4.0 |
+| <a name="requirement_external"></a> [external](#requirement\_external) | >= 2.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 5.94.1 |
+| <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | 5.8.2 |
 | <a name="provider_external"></a> [external](#provider\_external) | 2.3.4 |
 
 ## Modules
@@ -122,10 +220,14 @@ No requirements.
 | [aws_lb_listener_rule.rule_additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_route53_record.additional_alb_records](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
 | [aws_route53_record.main_alb_record](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
+| [cloudflare_dns_record.additional_alb_records](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/dns_record) | resource |
+| [cloudflare_dns_record.main_alb_record](https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs/resources/dns_record) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_ecs_cluster.ecs_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecs_cluster) | data source |
 | [aws_lb.additional_albs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
+| [aws_lb.additional_albs_cloudflare](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
 | [aws_lb.main_alb](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
+| [aws_lb.main_alb_cloudflare](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [aws_service_discovery_http_namespace.namespace](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/service_discovery_http_namespace) | data source |
 | [external_external.listener_rules](https://registry.terraform.io/providers/hashicorp/external/latest/docs/data-sources/external) | data source |
@@ -134,8 +236,8 @@ No requirements.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_additional_load_balancers"></a> [additional\_load\_balancers](#input\_additional\_load\_balancers) | Additional load balancers configuration | <pre>list(object({<br/>    enabled                          = optional(bool, false)<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 10)<br/>    health_check_threshold_healthy   = optional(number, 2)<br/>    health_check_threshold_unhealthy = optional(number, 5)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>    stickiness                       = optional(bool, false)<br/>    stickiness_ttl                   = optional(number, 300)<br/>    stickiness_type                  = optional(string, "app_cookie")<br/>    cookie_name                      = optional(string, "")<br/>    action_type                      = optional(string, "forward")<br/>    target_group_name                = optional(string, "")<br/>    deregister_deregistration_delay  = optional(number, 60)<br/>    route_53_host_zone_id            = optional(string, "")<br/>  }))</pre> | `[]` | no |
-| <a name="input_application_load_balancer"></a> [application\_load\_balancer](#input\_application\_load\_balancer) | alb | <pre>object({<br/>    enabled                          = optional(bool, false)<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 10)<br/>    health_check_threshold_healthy   = optional(number, 2)<br/>    health_check_threshold_unhealthy = optional(number, 5)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>    stickiness                       = optional(bool, false)<br/>    stickiness_ttl                   = optional(number, 300)<br/>    cookie_name                      = optional(string, "")<br/>    stickiness_type                  = optional(string, "app_cookie")<br/>    action_type                      = optional(string, "forward")<br/>    target_group_name                = optional(string, "")<br/>    deregister_deregistration_delay  = optional(number, 60)<br/>    route_53_host_zone_id            = optional(string, "")<br/>  })</pre> | `{}` | no |
+| <a name="input_additional_load_balancers"></a> [additional\_load\_balancers](#input\_additional\_load\_balancers) | Additional load balancers configuration | <pre>list(object({<br/>    enabled                          = optional(bool, false)<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 10)<br/>    health_check_threshold_healthy   = optional(number, 2)<br/>    health_check_threshold_unhealthy = optional(number, 5)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>    stickiness                       = optional(bool, false)<br/>    stickiness_ttl                   = optional(number, 300)<br/>    stickiness_type                  = optional(string, "app_cookie")<br/>    cookie_name                      = optional(string, "")<br/>    action_type                      = optional(string, "forward")<br/>    target_group_name                = optional(string, "")<br/>    deregister_deregistration_delay  = optional(number, 60)<br/>    route_53_host_zone_id            = optional(string, "")<br/>    cloudflare_zone_id               = optional(string, "")<br/>    cloudflare_proxied               = optional(bool, true)<br/>    cloudflare_ttl                   = optional(number, 300)<br/>  }))</pre> | `[]` | no |
+| <a name="input_application_load_balancer"></a> [application\_load\_balancer](#input\_application\_load\_balancer) | alb | <pre>object({<br/>    enabled                          = optional(bool, false)<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 10)<br/>    health_check_threshold_healthy   = optional(number, 2)<br/>    health_check_threshold_unhealthy = optional(number, 5)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>    stickiness                       = optional(bool, false)<br/>    stickiness_ttl                   = optional(number, 300)<br/>    cookie_name                      = optional(string, "")<br/>    stickiness_type                  = optional(string, "app_cookie")<br/>    action_type                      = optional(string, "forward")<br/>    target_group_name                = optional(string, "")<br/>    deregister_deregistration_delay  = optional(number, 60)<br/>    route_53_host_zone_id            = optional(string, "")<br/>    cloudflare_zone_id               = optional(string, "")<br/>    cloudflare_proxied               = optional(bool, true)<br/>    cloudflare_ttl                   = optional(number, 300)<br/>  })</pre> | `{}` | no |
 | <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Assign public IP to ECS tasks | `bool` | `false` | no |
 | <a name="input_capacity_provider_strategy"></a> [capacity\_provider\_strategy](#input\_capacity\_provider\_strategy) | name of the capacity | `string` | `""` | no |
 | <a name="input_container_image"></a> [container\_image](#input\_container\_image) | Docker image for the container | `string` | `"nginx:latest"` | no |
@@ -165,7 +267,9 @@ No requirements.
 
 | Name | Description |
 |------|-------------|
+| <a name="output_cloudflare_records"></a> [cloudflare\_records](#output\_cloudflare\_records) | Cloudflare DNS records created |
 | <a name="output_cloudwatch_log_group_name"></a> [cloudwatch\_log\_group\_name](#output\_cloudwatch\_log\_group\_name) | n/a |
 | <a name="output_ecs_service_name"></a> [ecs\_service\_name](#output\_ecs\_service\_name) | n/a |
 | <a name="output_ecs_task_definition_arn"></a> [ecs\_task\_definition\_arn](#output\_ecs\_task\_definition\_arn) | n/a |
+| <a name="output_route53_records"></a> [route53\_records](#output\_route53\_records) | Route53 DNS records created |
 <!-- END_TF_DOCS -->

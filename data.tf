@@ -23,7 +23,7 @@ data "external" "listener_rules" {
 
 data "aws_lb" "main_alb" {
   count = var.application_load_balancer.enabled && var.application_load_balancer.route_53_host_zone_id != "" ? 1 : 0
-  
+
   # Extract ALB ARN from listener ARN by removing the listener part
   # From: arn:aws:elasticloadbalancing:us-east-1:556196322339:listener/app/production-alb/0477f09e7143a1db/398beeae51e94e2d
   # To:   arn:aws:elasticloadbalancing:us-east-1:556196322339:loadbalancer/app/production-alb/0477f09e7143a1db
@@ -35,7 +35,25 @@ data "aws_lb" "additional_albs" {
     for idx, alb in var.additional_load_balancers : idx => alb
     if alb.enabled && alb.route_53_host_zone_id != ""
   }
-  
+
+  # Extract ALB ARN from listener ARN by removing the listener part
+  arn = replace(regex("^(.+)/[^/]+$", each.value.listener_arn)[0], ":listener/", ":loadbalancer/")
+}
+
+# Data sources for Cloudflare DNS records
+data "aws_lb" "main_alb_cloudflare" {
+  count = var.application_load_balancer.enabled && var.application_load_balancer.cloudflare_zone_id != "" ? 1 : 0
+
+  # Extract ALB ARN from listener ARN by removing the listener part
+  arn = replace(regex("^(.+)/[^/]+$", var.application_load_balancer.listener_arn)[0], ":listener/", ":loadbalancer/")
+}
+
+data "aws_lb" "additional_albs_cloudflare" {
+  for_each = {
+    for idx, alb in var.additional_load_balancers : idx => alb
+    if alb.enabled && alb.cloudflare_zone_id != ""
+  }
+
   # Extract ALB ARN from listener ARN by removing the listener part
   arn = replace(regex("^(.+)/[^/]+$", each.value.listener_arn)[0], ":listener/", ":loadbalancer/")
 }

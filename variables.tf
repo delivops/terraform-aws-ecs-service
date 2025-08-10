@@ -38,6 +38,9 @@ variable "application_load_balancer" {
     target_group_name                = optional(string, "")
     deregister_deregistration_delay  = optional(number, 60)
     route_53_host_zone_id            = optional(string, "")
+    cloudflare_zone_id               = optional(string, "")
+    cloudflare_proxied               = optional(bool, true)
+    cloudflare_ttl                   = optional(number, 300)
   })
   default = {}
 }
@@ -66,6 +69,9 @@ variable "additional_load_balancers" {
     target_group_name                = optional(string, "")
     deregister_deregistration_delay  = optional(number, 60)
     route_53_host_zone_id            = optional(string, "")
+    cloudflare_zone_id               = optional(string, "")
+    cloudflare_proxied               = optional(bool, true)
+    cloudflare_ttl                   = optional(number, 300)
   }))
   default = []
 }

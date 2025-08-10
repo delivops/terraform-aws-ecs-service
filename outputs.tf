@@ -8,3 +8,43 @@ output "ecs_task_definition_arn" {
 output "cloudwatch_log_group_name" {
   value = aws_cloudwatch_log_group.ecs_log_group.name
 }
+
+output "route53_records" {
+  description = "Route53 DNS records created"
+  value = {
+    main_record = var.application_load_balancer.enabled && var.application_load_balancer.route_53_host_zone_id != "" && var.application_load_balancer.host != "" ? {
+      name    = aws_route53_record.main_alb_record[0].name
+      fqdn    = aws_route53_record.main_alb_record[0].fqdn
+      zone_id = aws_route53_record.main_alb_record[0].zone_id
+    } : null
+    additional_records = {
+      for idx, record in aws_route53_record.additional_alb_records : idx => {
+        name    = record.name
+        fqdn    = record.fqdn
+        zone_id = record.zone_id
+      }
+    }
+  }
+}
+
+output "cloudflare_records" {
+  description = "Cloudflare DNS records created"
+  value = {
+    main_record = var.application_load_balancer.enabled && var.application_load_balancer.cloudflare_zone_id != "" && var.application_load_balancer.host != "" ? {
+      name    = cloudflare_dns_record.main_alb_record[0].name
+      content = cloudflare_dns_record.main_alb_record[0].content
+      zone_id = cloudflare_dns_record.main_alb_record[0].zone_id
+      proxied = cloudflare_dns_record.main_alb_record[0].proxied
+      type    = cloudflare_dns_record.main_alb_record[0].type
+    } : null
+    additional_records = {
+      for idx, record in cloudflare_dns_record.additional_alb_records : idx => {
+        name    = record.name
+        content = record.content
+        zone_id = record.zone_id
+        proxied = record.proxied
+        type    = record.type
+      }
+    }
+  }
+}

@@ -8,7 +8,7 @@ locals {
 
   # Target group naming logic with 32-char safety
   main_target_group_name = var.application_load_balancer.target_group_name != "" ? var.application_load_balancer.target_group_name : replace(
-    "${substr(var.ecs_service_name, 0, 20)}-${substr(md5("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}"), 0, 5)}-tg", 
+    "${substr(var.ecs_service_name, 0, 20)}-${substr(md5("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}"), 0, 5)}-tg",
     "_", "-"
   )
 
@@ -32,7 +32,7 @@ locals {
     var.sqs_auto_scaling.queue_name != "" ?
     var.sqs_auto_scaling.queue_name :
     var.sqs_auto_scaling.scale_out_queue_name
-  )  
+  )
 
 
 }

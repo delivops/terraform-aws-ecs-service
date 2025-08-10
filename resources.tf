@@ -219,7 +219,7 @@ resource "aws_ecs_task_definition" "task_definition" {
             protocol      = "tcp"
             appProtocol   = "http"
           }
-        ] : var.service_connect.enabled && !(var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward") ? [
+          ] : var.service_connect.enabled && !(var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward") ? [
           {
             name          = "default"
             containerPort = var.service_connect.port
@@ -327,9 +327,9 @@ resource "aws_ecs_service" "ecs_service" {
             port     = var.service_connect.port
             dns_name = var.service_connect.name
           }
-          timeout{
-                     idle_timeout_seconds        = 0
-                     per_request_timeout_seconds = var.service_connect.timeout
+          timeout {
+            idle_timeout_seconds        = 0
+            per_request_timeout_seconds = var.service_connect.timeout
           }
         }
       }
@@ -343,9 +343,9 @@ resource "aws_ecs_service" "ecs_service" {
             port     = service.value.port
             dns_name = var.service_connect.name
           }
-          timeout{
-                     idle_timeout_seconds        = 0
-                     per_request_timeout_seconds = var.service_connect.timeout
+          timeout {
+            idle_timeout_seconds        = 0
+            per_request_timeout_seconds = var.service_connect.timeout
           }
         }
       }
@@ -658,4 +658,34 @@ resource "aws_route53_record" "additional_alb_records" {
     zone_id                = data.aws_lb.additional_albs[each.key].zone_id
     evaluate_target_health = true
   }
+}
+
+###############################################################################
+# CLOUDFLARE DNS RECORDS
+###############################################################################
+
+# Cloudflare record for main ALB
+resource "cloudflare_dns_record" "main_alb_record" {
+  count   = var.application_load_balancer.enabled && var.application_load_balancer.cloudflare_zone_id != "" && var.application_load_balancer.host != "" ? 1 : 0
+  zone_id = var.application_load_balancer.cloudflare_zone_id
+  name    = var.application_load_balancer.host
+  content = data.aws_lb.main_alb_cloudflare[0].dns_name
+  type    = "CNAME"
+  ttl     = var.application_load_balancer.cloudflare_proxied ? 1 : var.application_load_balancer.cloudflare_ttl
+  proxied = var.application_load_balancer.cloudflare_proxied
+}
+
+# Cloudflare records for additional ALBs
+resource "cloudflare_dns_record" "additional_alb_records" {
+  for_each = {
+    for idx, alb in var.additional_load_balancers : idx => alb
+    if alb.enabled && alb.cloudflare_zone_id != "" && alb.host != ""
+  }
+
+  zone_id = each.value.cloudflare_zone_id
+  name    = each.value.host
+  content = data.aws_lb.additional_albs_cloudflare[each.key].dns_name
+  type    = "CNAME"
+  ttl     = each.value.cloudflare_proxied ? 1 : each.value.cloudflare_ttl
+  proxied = each.value.cloudflare_proxied
 }
