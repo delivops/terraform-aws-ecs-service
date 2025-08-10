@@ -182,7 +182,7 @@ This module is released under the MIT License.
 | Name | Version |
 |------|---------|
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
-| <a name="requirement_cloudflare"></a> [cloudflare](#requirement\_cloudflare) | ~> 4 |
+| <a name="requirement_cloudflare"></a> [cloudflare](#requirement\_cloudflare) | <= 5.0 |
 | <a name="requirement_external"></a> [external](#requirement\_external) | >= 2.0 |
 
 ## Providers
