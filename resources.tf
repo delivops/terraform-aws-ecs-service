@@ -201,8 +201,8 @@ resource "aws_ecs_task_definition" "task_definition" {
   requires_compatibilities = [var.ecs_launch_type]
   cpu                      = var.ecs_task_cpu
   memory                   = var.ecs_task_memory
-  task_role_arn            = var.initial_role != "" ? "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.initial_role}" : null
-  execution_role_arn       = var.initial_role != "" ? "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.initial_role}" : null
+  task_role_arn            = var.initial_role != "" ? var.initial_role : null
+  execution_role_arn       = var.initial_role != "" ? var.initial_role : null
   container_definitions = jsonencode([
     {
       name      = var.container_name
