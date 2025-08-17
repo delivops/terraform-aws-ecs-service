@@ -192,7 +192,7 @@ variable "cpu_auto_scaling" {
   default     = {}
   type = object({
     enabled            = optional(bool, false)
-    min_replicas       = optional(number, 1)
+    min_replicas       = optional(number, 0)
     max_replicas       = optional(number, 1)
     scale_in_cooldown  = optional(number, 300)
     scale_out_cooldown = optional(number, 300)
@@ -205,8 +205,8 @@ variable "memory_auto_scaling" {
   default     = {}
   type = object({
     enabled            = optional(bool, false)
-    min_replicas       = optional(number, 1)
-    max_replicas       = optional(number, 1)
+    min_replicas       = optional(number, 0)
+    max_replicas       = optional(number, 0)
     scale_in_cooldown  = optional(number, 300)
     scale_out_cooldown = optional(number, 300)
     target_value       = optional(number, 70)
@@ -218,7 +218,7 @@ variable "sqs_auto_scaling" {
   default     = {}
   type = object({
     enabled                       = optional(bool, false)
-    min_replicas                  = optional(number, 1)
+    min_replicas                  = optional(number, 0)
     max_replicas                  = optional(number, 1)
     scale_in_queue_name           = optional(string, "")
     scale_out_queue_name          = optional(string, "")
@@ -246,7 +246,7 @@ variable "schedule_auto_scaling" {
     enabled = optional(bool, false)
     schedules = optional(list(object({
       schedule_name       = optional(string, "")
-      min_replicas        = optional(number, 1)
+      min_replicas        = optional(number, 0)
       max_replicas        = optional(number, 1)
       schedule_expression = optional(string, "cron(0 0 1 * ? *)") # cron expression
       time_zone           = optional(string, "Asia/Jerusalem")
