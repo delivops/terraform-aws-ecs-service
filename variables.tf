@@ -206,7 +206,7 @@ variable "memory_auto_scaling" {
   type = object({
     enabled            = optional(bool, false)
     min_replicas       = optional(number, 0)
-    max_replicas       = optional(number, 0)
+    max_replicas       = optional(number, 1)
     scale_in_cooldown  = optional(number, 300)
     scale_out_cooldown = optional(number, 300)
     target_value       = optional(number, 70)
