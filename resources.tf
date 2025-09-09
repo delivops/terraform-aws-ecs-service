@@ -291,7 +291,7 @@ resource "aws_ecs_service" "ecs_service" {
             dns_name = var.service_connect.name
           }
           timeout {
-            idle_timeout_seconds        = 0
+            idle_timeout_seconds        = var.service_connect.appProtocol == "http" ? 0 : null
             per_request_timeout_seconds = var.service_connect.appProtocol == "http" ? var.service_connect.timeout : null
           }
         }
