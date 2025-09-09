@@ -225,7 +225,7 @@ resource "aws_ecs_task_definition" "task_definition" {
             containerPort = var.service_connect.port
             hostPort      = var.service_connect.port
             protocol      = "tcp"
-          }, var.service_connect.appProtocol == "http" ? { appProtocol = "http" } : {})
+          }, try(var.service_connect.appProtocol, "http") == "http" ? { appProtocol = "http" } : {})
         ] : [],
         # Additional Service Connect ports
         [
@@ -235,7 +235,7 @@ resource "aws_ecs_task_definition" "task_definition" {
             containerPort = port_config.port
             hostPort      = port_config.port
             protocol      = "tcp"
-          }, port_config.appProtocol == "http" ? { appProtocol = "http" } : {})
+          }, try(port_config.appProtocol, "http") == "http" ? { appProtocol = "http" } : {})
         ]
       ])
     }

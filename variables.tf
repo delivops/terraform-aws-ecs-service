@@ -103,7 +103,7 @@ variable "service_connect" {
   }
 
   validation {
-    condition     = contains(["http", "tcp"], var.service_connect.appProtocol)
+    condition     = var.service_connect.enabled == false || contains(["http", "tcp"], var.service_connect.appProtocol)
     error_message = "Allowed values for service_connect.appProtocol are: http, tcp."
   }
 }
