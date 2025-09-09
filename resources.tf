@@ -229,7 +229,7 @@ resource "aws_ecs_task_definition" "task_definition" {
         ] : [],
         # Additional Service Connect ports
         [
-          for name, port_config in var.service_connect.additional_ports :
+          for port_config in var.service_connect.additional_ports :
           merge({
             name          = port_config.name
             containerPort = port_config.port
