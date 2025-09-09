@@ -220,23 +220,22 @@ resource "aws_ecs_task_definition" "task_definition" {
             appProtocol   = "http"
           }
           ] : var.service_connect.enabled && !(var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward") ? [
-          {
+          merge({
             name          = "default"
             containerPort = var.service_connect.port
             hostPort      = var.service_connect.port
             protocol      = "tcp"
-            appProtocol   = "http"
-          }
+          }, var.service_connect.appProtocol == "http" ? { appProtocol = "http" } : {})
         ] : [],
         # Additional Service Connect ports
         [
-          for name, port_config in var.service_connect.additional_ports : {
+          for name, port_config in var.service_connect.additional_ports :
+          merge({
             name          = port_config.name
             containerPort = port_config.port
             hostPort      = port_config.port
             protocol      = "tcp"
-            appProtocol   = "http"
-          }
+          }, port_config.appProtocol == "http" ? { appProtocol = "http" } : {})
         ]
       ])
     }
