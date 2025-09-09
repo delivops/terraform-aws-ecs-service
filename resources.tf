@@ -292,7 +292,7 @@ resource "aws_ecs_service" "ecs_service" {
           }
           timeout {
             idle_timeout_seconds        = 0
-            per_request_timeout_seconds = var.service_connect.appProtocol == "http" ? var.service_connect.timeout : 0
+            per_request_timeout_seconds = var.service_connect.appProtocol == "http" ? var.service_connect.timeout : null
           }
         }
       }
