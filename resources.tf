@@ -219,33 +219,33 @@ resource "aws_ecs_task_definition" "task_definition" {
             protocol      = "tcp"
             appProtocol   = "http"
           }
-          ] : var.service_connect.enabled && !(var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward") ? [
-          try(var.service_connect.appProtocol, "http") == "http" ? {
+        ] : var.service_connect.enabled && !(var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward") ? [
+          lookup(var.service_connect, "appProtocol", "http") == "http" ? {
             name          = "default"
-            containerPort = tonumber(var.service_connect.port)
-            hostPort      = tonumber(var.service_connect.port)
+            containerPort = var.service_connect.port
+            hostPort      = var.service_connect.port
             protocol      = "tcp"
             appProtocol   = "http"
           } : {
             name          = "default"
-            containerPort = tonumber(var.service_connect.port)
-            hostPort      = tonumber(var.service_connect.port)
+            containerPort = var.service_connect.port
+            hostPort      = var.service_connect.port
             protocol      = "tcp"
           }
         ] : [],
         # Additional Service Connect ports
         [
           for port_config in var.service_connect.additional_ports :
-          try(port_config.appProtocol, "http") == "http" ? {
+          lookup(port_config, "appProtocol", "http") == "http" ? {
             name          = port_config.name
-            containerPort = tonumber(port_config.port)
-            hostPort      = tonumber(port_config.port)
+            containerPort = port_config.port
+            hostPort      = port_config.port
             protocol      = "tcp"
             appProtocol   = "http"
           } : {
             name          = port_config.name
-            containerPort = tonumber(port_config.port)
-            hostPort      = tonumber(port_config.port)
+            containerPort = port_config.port
+            hostPort      = port_config.port
             protocol      = "tcp"
           }
         ]
