@@ -205,46 +205,10 @@ resource "aws_ecs_task_definition" "task_definition" {
   execution_role_arn       = var.initial_role != "" ? var.initial_role : null
   container_definitions = jsonencode([
     {
-      name      = var.container_name
-      image     = var.container_image
-      essential = true
-      portMappings = concat(
-        var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward" ? [
-          merge(
-            {
-              name          = "default"
-              containerPort = var.application_load_balancer.container_port
-              hostPort      = var.application_load_balancer.container_port
-              protocol      = "tcp"
-            },
-            { appProtocol = "http" }
-          )
-        ] : 
-        var.service_connect.enabled && !(var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward") ? [
-          merge(
-            {
-              name          = "default"
-              containerPort = var.service_connect.port
-              hostPort      = var.service_connect.port
-              protocol      = "tcp"
-            },
-            lookup(var.service_connect, "appProtocol", "http") == "http" ? { appProtocol = "http" } : {}
-          )
-        ] : [],
-        # Additional Service Connect ports
-        [
-          for port_config in var.service_connect.additional_ports :
-          merge(
-            {
-              name          = port_config.name
-              containerPort = port_config.port
-              hostPort      = port_config.port
-              protocol      = "tcp"
-            },
-            lookup(port_config, "appProtocol", "http") == "http" ? { appProtocol = "http" } : {}
-          )
-        ]
-      )
+      name         = var.container_name
+      image        = var.container_image
+      essential    = true
+      portMappings = local.all_port_mappings
     }
   ])
 
