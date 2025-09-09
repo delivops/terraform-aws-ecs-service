@@ -203,14 +203,7 @@ resource "aws_ecs_task_definition" "task_definition" {
   memory                   = var.ecs_task_memory
   task_role_arn            = var.initial_role != "" ? var.initial_role : null
   execution_role_arn       = var.initial_role != "" ? var.initial_role : null
-  container_definitions = jsonencode([
-    {
-      name         = var.container_name
-      image        = var.container_image
-      essential    = true
-      portMappings = local.all_port_mappings
-    }
-  ])
+  container_definitions    = local.container_definitions_json
 
   lifecycle {
     ignore_changes = all
