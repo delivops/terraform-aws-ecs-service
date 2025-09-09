@@ -203,55 +203,7 @@ resource "aws_ecs_task_definition" "task_definition" {
   memory                   = var.ecs_task_memory
   task_role_arn            = var.initial_role != "" ? var.initial_role : null
   execution_role_arn       = var.initial_role != "" ? var.initial_role : null
-  container_definitions = jsonencode([
-    {
-      name      = var.container_name
-      image     = var.container_image
-      essential = true
-
-      portMappings = flatten([
-        # Primary port mapping - ALB takes priority, otherwise Service Connect
-        var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward" ? [
-          {
-            name          = "default"
-            containerPort = var.application_load_balancer.container_port
-            hostPort      = var.application_load_balancer.container_port
-            protocol      = "tcp"
-            appProtocol   = "http"
-          }
-        ] : var.service_connect.enabled && !(var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward") ? [
-          lookup(var.service_connect, "appProtocol", "http") == "http" ? {
-            name          = "default"
-            containerPort = var.service_connect.port
-            hostPort      = var.service_connect.port
-            protocol      = "tcp"
-            appProtocol   = "http"
-          } : {
-            name          = "default"
-            containerPort = var.service_connect.port
-            hostPort      = var.service_connect.port
-            protocol      = "tcp"
-          }
-        ] : [],
-        # Additional Service Connect ports
-        [
-          for port_config in var.service_connect.additional_ports :
-          lookup(port_config, "appProtocol", "http") == "http" ? {
-            name          = port_config.name
-            containerPort = port_config.port
-            hostPort      = port_config.port
-            protocol      = "tcp"
-            appProtocol   = "http"
-          } : {
-            name          = port_config.name
-            containerPort = port_config.port
-            hostPort      = port_config.port
-            protocol      = "tcp"
-          }
-        ]
-      ])
-    }
-  ])
+  container_definitions    = local.container_definitions_json
 
   lifecycle {
     ignore_changes = all
@@ -369,7 +321,7 @@ resource "aws_ecs_service" "ecs_service" {
 
 
   lifecycle {
-    ignore_changes = [task_definition, platform_version, desired_count]
+    ignore_changes = [task_definition, platform_version, desired_count, service_connect_configuration.0.namespace]
   }
   depends_on = [aws_lb_listener_rule.rule,
     aws_lb_listener_rule.rule_additional,
