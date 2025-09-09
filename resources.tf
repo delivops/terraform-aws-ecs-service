@@ -321,7 +321,7 @@ resource "aws_ecs_service" "ecs_service" {
 
 
   lifecycle {
-    ignore_changes = [task_definition, platform_version, desired_count]
+    ignore_changes = [task_definition, platform_version, desired_count, service_connect_configuration.0.namespace]
   }
   depends_on = [aws_lb_listener_rule.rule,
     aws_lb_listener_rule.rule_additional,
