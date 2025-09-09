@@ -208,48 +208,43 @@ resource "aws_ecs_task_definition" "task_definition" {
       name      = var.container_name
       image     = var.container_image
       essential = true
-
-      portMappings = flatten([
-        # Primary port mapping - ALB takes priority, otherwise Service Connect
+      portMappings = concat(
         var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward" ? [
-          {
-            name          = "default"
-            containerPort = tonumber(var.application_load_balancer.container_port)
-            hostPort      = tonumber(var.application_load_balancer.container_port)
-            protocol      = "tcp"
-            appProtocol   = "http"
-          }
-        ] : var.service_connect.enabled && !(var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward") ? [
-          lookup(var.service_connect, "appProtocol", "http") == "http" ? {
-            name          = "default"
-            containerPort = tonumber(var.service_connect.port)
-            hostPort      = tonumber(var.service_connect.port)
-            protocol      = "tcp"
-            appProtocol   = "http"
-          } : {
-            name          = "default"
-            containerPort = tonumber(var.service_connect.port)
-            hostPort      = tonumber(var.service_connect.port)
-            protocol      = "tcp"
-          }
+          merge(
+            {
+              name          = "default"
+              containerPort = var.application_load_balancer.container_port
+              hostPort      = var.application_load_balancer.container_port
+              protocol      = "tcp"
+            },
+            { appProtocol = "http" }
+          )
+        ] : 
+        var.service_connect.enabled && !(var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward") ? [
+          merge(
+            {
+              name          = "default"
+              containerPort = var.service_connect.port
+              hostPort      = var.service_connect.port
+              protocol      = "tcp"
+            },
+            lookup(var.service_connect, "appProtocol", "http") == "http" ? { appProtocol = "http" } : {}
+          )
         ] : [],
         # Additional Service Connect ports
         [
           for port_config in var.service_connect.additional_ports :
-          lookup(port_config, "appProtocol", "http") == "http" ? {
-            name          = port_config.name
-            containerPort = tonumber(port_config.port)
-            hostPort      = tonumber(port_config.port)
-            protocol      = "tcp"
-            appProtocol   = "http"
-          } : {
-            name          = port_config.name
-            containerPort = tonumber(port_config.port)
-            hostPort      = tonumber(port_config.port)
-            protocol      = "tcp"
-          }
+          merge(
+            {
+              name          = port_config.name
+              containerPort = port_config.port
+              hostPort      = port_config.port
+              protocol      = "tcp"
+            },
+            lookup(port_config, "appProtocol", "http") == "http" ? { appProtocol = "http" } : {}
+          )
         ]
-      ])
+      )
     }
   ])
 
