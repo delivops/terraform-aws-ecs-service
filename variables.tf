@@ -87,9 +87,11 @@ variable "service_connect" {
     port    = optional(number, 80)
     name    = optional(string, "service")
     timeout = optional(number, 15)
+    appProtocol = optional(string, "http")
     additional_ports = optional(list(object({
-      name = string
-      port = number
+      name        = string
+      port        = number
+      appProtocol = optional(string, "http")
     })), [])
   })
 
@@ -98,6 +100,11 @@ variable "service_connect" {
   validation {
     condition     = contains(["client-only", "client-server"], var.service_connect.type)
     error_message = "Allowed values for service_connect.type are: client-only, client-server."
+  }
+
+  validation {
+    condition     = contains(["http", "tcp"], var.service_connect.appProtocol)
+    error_message = "Allowed values for service_connect.appProtocol are: http, tcp."
   }
 }
 
