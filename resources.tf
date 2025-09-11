@@ -199,7 +199,7 @@ resource "aws_lb_listener_rule" "rule_additional" {
 }
 
 ########################
-# Listener rules for NLB
+# Listeners for NLB
 #########################
 
 resource "aws_lb_listener" "tcp_listener" {
@@ -215,6 +215,23 @@ resource "aws_lb_listener" "tcp_listener" {
   }
 }
 
+resource "aws_lb_listener" "tcp_listener_additional" {
+  for_each = {
+    for idx, alb in var.additional_load_balancers : idx => alb
+    if alb.enabled && alb.protocol == "TCP"
+  }
+
+  load_balancer_arn = each.value.nlb_arn
+  port              = each.value.nlb_port
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_alb_target_group.target_group_additional[each.key].arn
+  }
+
+  depends_on = [aws_alb_target_group.target_group_additional]
+}
 
 ########################
 # Initial Task Definition
