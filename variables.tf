@@ -21,6 +21,7 @@ variable "application_load_balancer" {
     container_port                   = optional(number, 80)
     listener_arn                     = optional(string, "")
     nlb_arn                          = optional(string, ""}
+    nlb_port                         = optional(number, 80)
     host                             = optional(string, "")
     path                             = optional(string, "/*")
     protocol                         = optional(string, "HTTP")
@@ -53,6 +54,7 @@ variable "additional_load_balancers" {
     container_port                   = optional(number, 80)
     listener_arn                     = optional(string, "")
     nlb_arn                          = optional(string, ""}
+    nlb_port                         = optional(number, 80)
     host                             = optional(string, "")
     path                             = optional(string, "/*")
     protocol                         = optional(string, "HTTP")
