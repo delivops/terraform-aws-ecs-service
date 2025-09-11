@@ -12,7 +12,7 @@ data "aws_service_discovery_http_namespace" "namespace" {
 }
 
 data "external" "listener_rules" {
-  count = var.application_load_balancer.enabled ? 1 : 0
+  count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "HTTP" ? 1 : 0
 
   program = ["bash", "-c", <<EOT
     aws elbv2 describe-rules --listener-arn ${var.application_load_balancer.listener_arn} | \
