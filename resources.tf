@@ -69,7 +69,7 @@ resource "aws_alb_target_group" "target_group_additional" {
 }
 
 resource "aws_lb_listener_rule" "rule" {
-  count = var.application_load_balancer.enabled ? 1 : 0
+  count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "HTTP" ? 1 : 0
 
   listener_arn = var.application_load_balancer.listener_arn
   priority     = local.next_priority + length(var.additional_load_balancers)
@@ -133,7 +133,7 @@ resource "aws_lb_listener_rule" "rule" {
 resource "aws_lb_listener_rule" "rule_additional" {
   for_each = {
     for idx, alb in var.additional_load_balancers : idx => alb
-    if alb.enabled
+    if alb.enabled && alb.protocol == "HTTP"
   }
 
   listener_arn = each.value.listener_arn
