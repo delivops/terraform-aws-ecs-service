@@ -27,9 +27,9 @@ resource "aws_alb_target_group" "target_group" {
     healthy_threshold   = var.application_load_balancer.health_check_threshold_healthy
     interval            = var.application_load_balancer.health_check_interval_sec
     protocol            = var.application_load_balancer.health_check_protocol
-    matcher             = var.application_load_balancer.health_check_matcher
+    matcher             = var.application_load_balancer.health_check_protocol == "HTTP" ? var.application_load_balancer.health_check_matcher : null
     timeout             = var.application_load_balancer.health_check_timeout_sec
-    path                = var.application_load_balancer.health_check_path
+    path                = var.application_load_balancer.health_check_protocol == "HTTP" ? var.application_load_balancer.health_check_path : null
     unhealthy_threshold = var.application_load_balancer.health_check_threshold_unhealthy
   }
   depends_on = [aws_alb_target_group.target_group_additional]
@@ -61,15 +61,19 @@ resource "aws_alb_target_group" "target_group_additional" {
     healthy_threshold   = each.value.health_check_threshold_healthy
     interval            = each.value.health_check_interval_sec
     protocol            = each.value.health_check_protocol
-    matcher             = each.value.health_check_matcher
+    matcher             = each.value.health_check_protocol == "HTTP" ? each.value.health_check_matcher : null
     timeout             = each.value.health_check_timeout_sec
-    path                = each.value.health_check_path
+    path                = each.value.health_check_protocol == "HTTP" ? each.value.health_check_path : null
     unhealthy_threshold = each.value.health_check_threshold_unhealthy
   }
 }
 
+########################
+# Listener rules for ALB
+#########################
+
 resource "aws_lb_listener_rule" "rule" {
-  count = var.application_load_balancer.enabled ? 1 : 0
+  count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "HTTP" ? 1 : 0
 
   listener_arn = var.application_load_balancer.listener_arn
   priority     = local.next_priority + length(var.additional_load_balancers)
@@ -133,7 +137,7 @@ resource "aws_lb_listener_rule" "rule" {
 resource "aws_lb_listener_rule" "rule_additional" {
   for_each = {
     for idx, alb in var.additional_load_balancers : idx => alb
-    if alb.enabled
+    if alb.enabled && alb.protocol == "HTTP"
   }
 
   listener_arn = each.value.listener_arn
@@ -194,6 +198,44 @@ resource "aws_lb_listener_rule" "rule_additional" {
   depends_on = [aws_alb_target_group.target_group_additional]
 }
 
+########################
+# Listeners for NLB
+#########################
+
+resource "aws_lb_listener" "tcp_listener" {
+  count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "TCP" ? 1 : 0
+
+  load_balancer_arn = var.application_load_balancer.nlb_arn
+  port              = var.application_load_balancer.nlb_port
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_alb_target_group.target_group[0].arn
+  }
+}
+
+resource "aws_lb_listener" "tcp_listener_additional" {
+  for_each = {
+    for idx, alb in var.additional_load_balancers : idx => alb
+    if alb.enabled && alb.protocol == "TCP"
+  }
+
+  load_balancer_arn = each.value.nlb_arn
+  port              = each.value.nlb_port
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_alb_target_group.target_group_additional[each.key].arn
+  }
+
+  depends_on = [aws_alb_target_group.target_group_additional]
+}
+
+########################
+# Initial Task Definition
+#########################
 
 resource "aws_ecs_task_definition" "task_definition" {
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
