@@ -27,7 +27,7 @@ resource "aws_alb_target_group" "target_group" {
     healthy_threshold   = var.application_load_balancer.health_check_threshold_healthy
     interval            = var.application_load_balancer.health_check_interval_sec
     protocol            = var.application_load_balancer.health_check_protocol
-    matcher             = var.application_load_balancer.health_check_matcher
+    matcher             = var.application_load_balancer.health_check_protocol == "HTTP" ? var.application_load_balancer.health_check_matcher : null
     timeout             = var.application_load_balancer.health_check_timeout_sec
     path                = var.application_load_balancer.health_check_protocol == "HTTP" ? var.application_load_balancer.health_check_path : null
     unhealthy_threshold = var.application_load_balancer.health_check_threshold_unhealthy
@@ -61,9 +61,9 @@ resource "aws_alb_target_group" "target_group_additional" {
     healthy_threshold   = each.value.health_check_threshold_healthy
     interval            = each.value.health_check_interval_sec
     protocol            = each.value.health_check_protocol
-    matcher             = each.value.health_check_matcher
+    matcher             = each.value.health_check_protocol == "HTTP" ? each.value.health_check_matcher : null
     timeout             = each.value.health_check_timeout_sec
-    path                = each.value.health_check_path
+    path                = each.value.health_check_protocol == "HTTP" ? each.value.health_check_path : null
     unhealthy_threshold = each.value.health_check_threshold_unhealthy
   }
 }
