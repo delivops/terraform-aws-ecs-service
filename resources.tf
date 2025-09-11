@@ -29,7 +29,7 @@ resource "aws_alb_target_group" "target_group" {
     protocol            = var.application_load_balancer.health_check_protocol
     matcher             = var.application_load_balancer.health_check_matcher
     timeout             = var.application_load_balancer.health_check_timeout_sec
-    path                = var.application_load_balancer.health_check_path
+    path                = var.application_load_balancer.health_check_protocol == "HTTP" ? var.application_load_balancer.health_check_path : null
     unhealthy_threshold = var.application_load_balancer.health_check_threshold_unhealthy
   }
   depends_on = [aws_alb_target_group.target_group_additional]
