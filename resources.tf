@@ -68,6 +68,10 @@ resource "aws_alb_target_group" "target_group_additional" {
   }
 }
 
+########################
+# Listener rules for ALB
+#########################
+
 resource "aws_lb_listener_rule" "rule" {
   count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "HTTP" ? 1 : 0
 
@@ -194,6 +198,27 @@ resource "aws_lb_listener_rule" "rule_additional" {
   depends_on = [aws_alb_target_group.target_group_additional]
 }
 
+########################
+# Listener rules for NLB
+#########################
+
+resource "aws_lb_listener" "tcp_listener" {
+  count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "TCP" ? 1 : 0
+
+  load_balancer_arn = var.application_load_balancer.nlb_arn
+  port              = var.application_load_balancer.nlb_port
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_alb_target_group.target_group.arn
+  }
+}
+
+
+########################
+# Initial Task Definition
+#########################
 
 resource "aws_ecs_task_definition" "task_definition" {
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
