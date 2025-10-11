@@ -32,7 +32,7 @@ output "cloudflare_records" {
   value = {
     main_record = var.application_load_balancer.enabled && var.application_load_balancer.cloudflare_zone_id != "" && var.application_load_balancer.host != "" ? {
       name    = cloudflare_record.main_alb_record[0].name
-      value = cloudflare_record.main_alb_record[0].value
+      value   = cloudflare_record.main_alb_record[0].value
       zone_id = cloudflare_record.main_alb_record[0].zone_id
       proxied = cloudflare_record.main_alb_record[0].proxied
       type    = cloudflare_record.main_alb_record[0].type
@@ -40,11 +40,26 @@ output "cloudflare_records" {
     additional_records = {
       for idx, record in cloudflare_record.additional_alb_records : idx => {
         name    = record.name
-        value = record.value
+        value   = record.value
         zone_id = record.zone_id
         proxied = record.proxied
         type    = record.type
       }
     }
   }
+}
+
+output "sqs_autoscaling" {
+  description = "SQS autoscaling resources (policies, alarms)"
+  value = var.sqs_autoscaling.enabled ? {
+    scale_out_policy_arn = try(aws_appautoscaling_policy.sqs_scale_out[0].arn, null)
+    scale_in_policy_arn  = try(aws_appautoscaling_policy.sqs_scale_in[0].arn, null)
+    age_out_alarm_arn    = try(aws_cloudwatch_metric_alarm.sqs_age_out[0].arn, aws_cloudwatch_metric_alarm.sqs_age_out_sma[0].arn, null)
+    age_in_alarm_arn     = try(aws_cloudwatch_metric_alarm.sqs_age_in_ready[0].arn, null)
+    composite_alarm_arn  = try(aws_cloudwatch_composite_alarm.sqs_scale_in_safe[0].arn, null)
+    queue_names = {
+      scale_out = local.sqs_out_queue
+      scale_in  = local.sqs_in_queue
+    }
+  } : null
 }

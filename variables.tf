@@ -86,11 +86,11 @@ variable "additional_load_balancers" {
 
 variable "service_connect" {
   type = object({
-    enabled = optional(bool, false)
-    type    = optional(string, "client-only")
-    port    = optional(number, 80)
-    name    = optional(string, "service")
-    timeout = optional(number, 15)
+    enabled     = optional(bool, false)
+    type        = optional(string, "client-only")
+    port        = optional(number, 80)
+    name        = optional(string, "service")
+    timeout     = optional(number, 15)
     appProtocol = optional(string, "http")
     additional_ports = optional(list(object({
       name        = string
@@ -224,30 +224,90 @@ variable "memory_auto_scaling" {
 
   })
 }
-variable "sqs_auto_scaling" {
-  description = "value for auto scaling"
+variable "sqs_autoscaling" {
+  description = "Opinionated SQS autoscaling config for this ECS service."
   default     = {}
   type = object({
-    enabled                       = optional(bool, false)
-    min_replicas                  = optional(number, 0)
-    max_replicas                  = optional(number, 1)
-    scale_in_queue_name           = optional(string, "")
-    scale_out_queue_name          = optional(string, "")
-    queue_name                    = optional(string, "")
-    scale_in_step                 = optional(number, 1)
-    scale_out_step                = optional(number, 1)
-    scale_in_cooldown             = optional(number, 300)
-    scale_out_cooldown            = optional(number, 60)
-    scale_in_threshold            = optional(number, 0)
-    scale_out_threshold           = optional(number, 1)
-    scale_out_interval            = optional(number, 60)
-    scale_in_interval             = optional(number, 120)
-    scale_in_datapoints_to_alarm  = optional(number, 1)
-    scale_out_datapoints_to_alarm = optional(number, 1)
-    scale_in_metric_name          = optional(string, "ApproximateNumberOfMessagesVisible")
-    scale_out_metric_name         = optional(string, "ApproximateNumberOfMessagesVisible")
+    enabled = optional(bool, false)
+
+    # Queue names — either set queue_name for both directions, or set each explicitly
+    queue_name           = optional(string)
+    scale_out_queue_name = optional(string)
+    scale_in_queue_name  = optional(string)
+
+    # Capacity guardrails (required when enabled)
+    min_replicas = optional(number)
+    max_replicas = optional(number)
+
+    # SLA thresholds for AgeOfOldestMessage (seconds)
+    scale_out_age_seconds = optional(number)
+    scale_in_age_seconds  = optional(number)
+
+    # Scale-in behavior (defaults baked in)
+    # If true, requires queue to be completely empty before scaling in (more stable)
+    # If false (default), scales in based on age alone (more cost-efficient)
+    require_empty_for_scale_in = optional(bool)
+    empty_eval_periods         = optional(number)
+    empty_period_seconds       = optional(number)
+
+    # Step ladders (scale-out proportional)
+    scale_out_steps = optional(list(object({
+      lower  = number
+      upper  = optional(number)
+      change = number
+    })))
+
+    # Scale-in step size (gentle shrink)
+    scale_in_step = optional(number)
+
+    # Cooldowns (override if needed)
+    scale_out_cooldown = optional(number)
+    scale_in_cooldown  = optional(number)
+
+    # Smoothing for Age via metric math (simple SMA on 60s periods). 0 disables.
+    age_sma_points = optional(number)
+
+    # Aggregation & missing data behavior
+    aggregation_type_out = optional(string)
+    aggregation_type_in  = optional(string)
+    treat_missing_out    = optional(string)
+    treat_missing_in     = optional(string)
   })
 
+  validation {
+    condition = !var.sqs_autoscaling.enabled || (
+      var.sqs_autoscaling.max_replicas != null &&
+      var.sqs_autoscaling.min_replicas != null &&
+      var.sqs_autoscaling.max_replicas >= var.sqs_autoscaling.min_replicas &&
+      var.sqs_autoscaling.min_replicas >= 0
+    )
+    error_message = "When sqs_autoscaling is enabled, min_replicas and max_replicas must be set, with max_replicas >= min_replicas >= 0."
+  }
+
+  validation {
+    condition = !var.sqs_autoscaling.enabled || (
+      var.sqs_autoscaling.queue_name != null ||
+      (var.sqs_autoscaling.scale_out_queue_name != null && var.sqs_autoscaling.scale_in_queue_name != null)
+    )
+    error_message = "When sqs_autoscaling is enabled, either queue_name or both scale_out_queue_name and scale_in_queue_name must be provided."
+  }
+
+  validation {
+    condition = !var.sqs_autoscaling.enabled || (
+      var.sqs_autoscaling.scale_out_age_seconds != null &&
+      var.sqs_autoscaling.scale_in_age_seconds != null &&
+      var.sqs_autoscaling.scale_out_age_seconds > var.sqs_autoscaling.scale_in_age_seconds &&
+      var.sqs_autoscaling.scale_in_age_seconds >= 0
+    )
+    error_message = "When sqs_autoscaling is enabled, scale_out_age_seconds and scale_in_age_seconds must be set, with scale_out_age_seconds > scale_in_age_seconds >= 0."
+  }
+
+  validation {
+    condition = !var.sqs_autoscaling.enabled || var.sqs_autoscaling.scale_out_steps == null || (
+      alltrue([for s in var.sqs_autoscaling.scale_out_steps : s.change > 0])
+    )
+    error_message = "All scale_out_steps must have change > 0."
+  }
 }
 
 variable "schedule_auto_scaling" {

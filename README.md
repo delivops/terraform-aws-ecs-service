@@ -9,7 +9,10 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 - Creates an ECS service with Fargate launch type
 - Configurable load balancer target group with health checks
 - Support for host-based and path-based routing rules
-- Auto-scaling capabilities based on CPU and Memory utilization
+- Auto-scaling capabilities:
+  - CPU and Memory utilization-based scaling
+  - **Advanced SQS-based autoscaling with latency-first approach**
+  - Scheduled scaling
 - CloudWatch logging integration
 - Deployment circuit breaker and CloudWatch alarms integration
 - DNS record management for both Route53 and Cloudflare
@@ -163,6 +166,129 @@ provider "cloudflare" {
   # api_key = var.cloudflare_api_key
 }
 ```
+
+## SQS-based Autoscaling
+
+This module supports advanced SQS-based autoscaling with best practices baked in. The implementation scales based on **message latency** (`ApproximateAgeOfOldestMessage`) rather than queue backlog, providing SLA-driven scaling behavior.
+
+### Key Features
+
+- **Latency-first scaling**: Scales based on how long messages wait, not how many are in the queue
+- **Asymmetric timing**: Fast scale-out (60s periods), conservative scale-in (300s periods)
+- **Safe scale-in**: Composite alarm ensures queue is truly empty before scaling in
+- **Proportional step ladder**: Aggressive scale-out when latency is high
+- **Sensible defaults**: Minimal configuration required for production use
+
+### Quick Start
+
+Minimal configuration with opinionated defaults:
+
+```hcl
+module "queue_processor" {
+  source = "delivops/ecs-service/aws"
+  version = "xxx"
+
+  ecs_cluster_name   = "my-cluster"
+  ecs_service_name   = "image-processor"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
+  security_group_ids = var.security_group_ids
+
+  sqs_autoscaling = {
+    enabled               = true
+    queue_name            = "image-processing-queue"
+    min_replicas          = 0
+    max_replicas          = 500
+    scale_out_age_seconds = 120  # Scale out when messages are 2+ minutes old
+    scale_in_age_seconds  = 20   # Scale in when messages are under 20 seconds old
+  }
+}
+```
+
+### Advanced Configuration
+
+Customize the step ladder and timings:
+
+```hcl
+sqs_autoscaling = {
+  enabled               = true
+  queue_name            = "jobs-queue"
+  min_replicas          = 2
+  max_replicas          = 300
+  scale_out_age_seconds = 90
+  scale_in_age_seconds  = 15
+
+  # Custom proportional step ladder
+  scale_out_steps = [
+    { lower = 0,   upper = 60,  change = 2  },  # Age 0-60s: add 2 tasks
+    { lower = 60,  upper = 240, change = 6  },  # Age 60-240s: add 6 tasks  
+    { lower = 240, upper = null, change = 18 } # Age 240s+: add 18 tasks
+  ]
+
+  # Custom cooldowns
+  scale_out_cooldown = 90
+  scale_in_cooldown  = 900
+
+  # Slower scale-in
+  scale_in_step = -2
+
+  # Enable smoothing (3-point moving average)
+  age_sma_points = 3
+}
+```
+
+### Why Latency over Backlog?
+
+**Old approach** (backlog-based):
+- ❌ Hard to set meaningful thresholds
+- ❌ Same backlog means different things at different processing speeds
+- ❌ Doesn't reflect actual user experience
+
+**New approach** (latency-based):
+- ✅ Direct measure of SLA compliance
+- ✅ Easy to reason about ("jobs should not wait more than 2 minutes")
+- ✅ Adapts to processing speed automatically
+
+### Default Behavior
+
+When you don't specify `scale_out_steps`, the module uses this proportional ladder:
+
+```hcl
+[
+  { lower = 0,   upper = 100, change = 2  },  # 0-100s age: add 2 tasks
+  { lower = 100, upper = 500, change = 5  },  # 100-500s: add 5 tasks
+  { lower = 500, upper = null, change = 15 }  # 500s+: add 15 tasks
+]
+```
+
+#### Scale-In Behavior
+
+**By default** (`require_empty_for_scale_in = false`), scale-in happens when:
+- Age stays below threshold (`scale_in_age_seconds`) for 15 minutes (3 evaluations × 5 minutes)
+- This is **cost-efficient**: if messages are being processed quickly, you're over-provisioned
+
+**For maximum stability** (`require_empty_for_scale_in = true`), scale-in requires:
+1. Age below threshold (`scale_in_age_seconds`)
+2. Visible messages count is zero
+3. In-flight messages count is zero
+
+Use `true` when you want to ensure all work is completed before reducing capacity, or when your workload has high oscillation risk.
+
+### Migration from Old Schema
+
+⚠️ **Breaking Change**: The `sqs_auto_scaling` variable has been redesigned as `sqs_autoscaling` (no underscore).
+
+See [SQS_AUTOSCALING_MIGRATION.md](./SQS_AUTOSCALING_MIGRATION.md) for detailed migration instructions.
+
+### Examples
+
+See [examples/sqs-auto-scaling-example.tf](./examples/sqs-auto-scaling-example.tf) for complete examples including:
+- Minimal configuration with defaults
+- Custom step ladder and timings
+- Stability mode with composite alarm
+- Smoothed metrics with SMA
+
+**Rationale for age-driven scale-in:** The 15-minute detection window (300s periods × 3 evaluations) provides strong hysteresis. If age stays low throughout this window, it's a clear signal that capacity exceeds demand. This is more cost-efficient than waiting for the queue to be completely empty.
 
 ## Notes
 
