@@ -303,8 +303,10 @@ variable "sqs_autoscaling" {
   }
 
   validation {
-    condition = !var.sqs_autoscaling.enabled || var.sqs_autoscaling.scale_out_steps == null || (
-      alltrue([for s in var.sqs_autoscaling.scale_out_steps : s.change > 0])
+    condition = (
+      !var.sqs_autoscaling.enabled ||
+      var.sqs_autoscaling.scale_out_steps == null ||
+      try(alltrue([for s in var.sqs_autoscaling.scale_out_steps : s.change > 0]), true)
     )
     error_message = "All scale_out_steps must have change > 0."
   }
