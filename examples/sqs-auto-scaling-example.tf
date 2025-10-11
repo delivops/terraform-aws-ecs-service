@@ -5,14 +5,14 @@ module "sqs_ecs_service_minimal" {
   source = "../"
 
   ecs_cluster_name   = var.cluster_name
-  ecs_service_name   = "screenshot-maker"
+  ecs_service_name   = "sqs"
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
 
   sqs_autoscaling = {
     enabled               = true
-    queue_name            = "screenshot-maker-production-queue"
+    queue_name            = "my-queue"
     min_replicas          = 0
     max_replicas          = 500
     scale_out_age_seconds = 120
@@ -27,15 +27,15 @@ module "sqs_ecs_service_custom" {
   source = "../"
 
   ecs_cluster_name   = var.cluster_name
-  ecs_service_name   = "image-processor"
+  ecs_service_name   = "sqs"
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
 
   sqs_autoscaling = {
     enabled               = true
-    scale_out_queue_name  = "images-out"
-    scale_in_queue_name   = "images-out"
+    scale_out_queue_name  = "my-queue-out"
+    scale_in_queue_name   = "my-queue-in"
     min_replicas          = 2
     max_replicas          = 300
     scale_out_age_seconds = 90
@@ -67,14 +67,14 @@ module "sqs_ecs_service_stable" {
   source = "../"
 
   ecs_cluster_name   = var.cluster_name
-  ecs_service_name   = "batch-processor"
+  ecs_service_name   = "sqs"
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
 
   sqs_autoscaling = {
     enabled               = true
-    queue_name            = "batch-jobs"
+    queue_name            = "my-queue"
     min_replicas          = 1
     max_replicas          = 100
     scale_out_age_seconds = 60
