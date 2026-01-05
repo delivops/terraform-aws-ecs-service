@@ -31,6 +31,7 @@ resource "aws_alb_target_group" "target_group" {
     timeout             = var.application_load_balancer.health_check_timeout_sec
     path                = var.application_load_balancer.health_check_protocol == "HTTP" ? var.application_load_balancer.health_check_path : null
     unhealthy_threshold = var.application_load_balancer.health_check_threshold_unhealthy
+    port                = var.application_load_balancer.health_check_port
   }
   depends_on = [aws_alb_target_group.target_group_additional]
 }
@@ -65,6 +66,7 @@ resource "aws_alb_target_group" "target_group_additional" {
     timeout             = each.value.health_check_timeout_sec
     path                = each.value.health_check_protocol == "HTTP" ? each.value.health_check_path : null
     unhealthy_threshold = each.value.health_check_threshold_unhealthy
+    port                = each.value.health_check_port
   }
 }
 
