@@ -16,7 +16,7 @@ data "external" "listener_rules" {
 
   program = ["bash", "-c", <<EOT
     aws elbv2 describe-rules --listener-arn ${var.application_load_balancer.listener_arn} | \
-    jq -c '{priorities: ([.Rules[].Priority | select(. != "default") | tostring] | join(","))}'
+    jq -c '{priorities: (([.Rules[].Priority | select(. != "default") | tostring] | join(",")) | if . == "" then "0" else . end)}'
   EOT
   ]
 }
