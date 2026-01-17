@@ -8,16 +8,16 @@ module "ecs_service_with_cloudflare" {
   initial_role       = aws_iam_role.ecs_task_role.name
 
   application_load_balancer = {
-    enabled            = true
-    container_port     = 80
-    listener_arn       = var.listener_arn
-    host               = "api.example.com" # The domain name you want
-    path               = "/*"
-    health_check_path  = "/"                    # Use root path for nginx
+    enabled              = true
+    container_port       = 80
+    listener_arn         = var.listener_arn
+    host                 = "api.example.com" # The domain name you want
+    path                 = "/*"
+    health_check_path    = "/"                      # Use root path for nginx
     cloudflare_api_token = var.cloudflare_api_token # Cloudflare API token
-    cloudflare_zone_id = var.cloudflare_zone_id # Cloudflare zone ID
-    cloudflare_proxied = true                   # Enable Cloudflare proxy (default: true)
-    cloudflare_ttl     = 300                    # TTL in seconds (ignored when proxied=true)
+    cloudflare_zone_id   = var.cloudflare_zone_id   # Cloudflare zone ID
+    cloudflare_proxied   = true                     # Enable Cloudflare proxy (default: true)
+    cloudflare_ttl       = 300                      # TTL in seconds (ignored when proxied=true)
   }
 }
 
