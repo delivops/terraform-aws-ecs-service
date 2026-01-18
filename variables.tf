@@ -88,11 +88,11 @@ variable "additional_load_balancers" {
 
 variable "service_connect" {
   type = object({
-    enabled = optional(bool, false)
-    type    = optional(string, "client-only")
-    port    = optional(number, 80)
-    name    = optional(string, "service")
-    timeout = optional(number, 15)
+    enabled     = optional(bool, false)
+    type        = optional(string, "client-only")
+    port        = optional(number, 80)
+    name        = optional(string, "service")
+    timeout     = optional(number, 15)
     appProtocol = optional(string, "http")
     additional_ports = optional(list(object({
       name        = string
@@ -281,6 +281,30 @@ variable "ecr" {
     versioned_retention = optional(number, 30) # How many versioned tags to keep
   })
   default = {}
+}
+
+variable "log_anomaly_detection" {
+  description = "CloudWatch Logs Anomaly Detection configuration"
+  type = object({
+    enabled                 = optional(bool, false)
+    evaluation_frequency    = optional(string, "TEN_MIN")
+    anomaly_visibility_time = optional(number, 7)
+    filter_pattern          = optional(string, "")
+  })
+  default = {}
+
+  validation {
+    condition = contains(
+      ["ONE_MIN", "FIVE_MIN", "TEN_MIN", "FIFTEEN_MIN", "THIRTY_MIN", "ONE_HOUR"],
+      var.log_anomaly_detection.evaluation_frequency
+    )
+    error_message = "evaluation_frequency must be one of: ONE_MIN, FIVE_MIN, TEN_MIN, FIFTEEN_MIN, THIRTY_MIN, ONE_HOUR"
+  }
+
+  validation {
+    condition     = var.log_anomaly_detection.anomaly_visibility_time >= 7 && var.log_anomaly_detection.anomaly_visibility_time <= 90
+    error_message = "anomaly_visibility_time must be between 7 and 90 days"
+  }
 }
 
 variable "tags" {

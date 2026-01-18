@@ -3,6 +3,16 @@ resource "aws_cloudwatch_log_group" "ecs_log_group" {
   retention_in_days = var.log_retention_days
 }
 
+resource "aws_cloudwatch_log_anomaly_detector" "this" {
+  count                   = var.log_anomaly_detection.enabled ? 1 : 0
+  detector_name           = aws_cloudwatch_log_group.ecs_log_group.name
+  log_group_arn_list      = [aws_cloudwatch_log_group.ecs_log_group.arn]
+  evaluation_frequency    = var.log_anomaly_detection.evaluation_frequency
+  anomaly_visibility_time = var.log_anomaly_detection.anomaly_visibility_time
+  filter_pattern          = var.log_anomaly_detection.filter_pattern != "" ? var.log_anomaly_detection.filter_pattern : null
+  enabled                 = true
+}
+
 resource "aws_alb_target_group" "target_group" {
   count                = var.application_load_balancer.enabled ? 1 : 0
   name                 = local.main_target_group_name
@@ -676,7 +686,7 @@ resource "cloudflare_record" "main_alb_record" {
   count   = var.application_load_balancer.enabled && var.application_load_balancer.cloudflare_zone_id != "" && var.application_load_balancer.host != "" ? 1 : 0
   zone_id = var.application_load_balancer.cloudflare_zone_id
   name    = var.application_load_balancer.host
-  value = data.aws_lb.main_alb_cloudflare[0].dns_name
+  value   = data.aws_lb.main_alb_cloudflare[0].dns_name
   type    = "CNAME"
   ttl     = var.application_load_balancer.cloudflare_proxied ? 1 : var.application_load_balancer.cloudflare_ttl
   proxied = var.application_load_balancer.cloudflare_proxied
