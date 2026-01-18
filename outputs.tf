@@ -32,7 +32,7 @@ output "cloudflare_records" {
   value = {
     main_record = var.application_load_balancer.enabled && var.application_load_balancer.cloudflare_zone_id != "" && var.application_load_balancer.host != "" ? {
       name    = cloudflare_record.main_alb_record[0].name
-      value = cloudflare_record.main_alb_record[0].value
+      value   = cloudflare_record.main_alb_record[0].value
       zone_id = cloudflare_record.main_alb_record[0].zone_id
       proxied = cloudflare_record.main_alb_record[0].proxied
       type    = cloudflare_record.main_alb_record[0].type
@@ -40,11 +40,21 @@ output "cloudflare_records" {
     additional_records = {
       for idx, record in cloudflare_record.additional_alb_records : idx => {
         name    = record.name
-        value = record.value
+        value   = record.value
         zone_id = record.zone_id
         proxied = record.proxied
         type    = record.type
       }
     }
   }
+}
+
+output "log_anomaly_detector_arn" {
+  description = "ARN of the CloudWatch Logs Anomaly Detector (if enabled)"
+  value       = var.log_anomaly_detection.enabled ? aws_cloudwatch_log_anomaly_detector.this[0].arn : null
+}
+
+output "log_anomaly_detector_name" {
+  description = "Name of the CloudWatch Logs Anomaly Detector (if enabled)"
+  value       = var.log_anomaly_detection.enabled ? aws_cloudwatch_log_anomaly_detector.this[0].detector_name : null
 }

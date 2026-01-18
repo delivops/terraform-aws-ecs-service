@@ -36,17 +36,17 @@ locals {
 
 
   # Determine which port configuration to use
-  use_alb = var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward"
+  use_alb             = var.application_load_balancer.enabled && var.application_load_balancer.action_type == "forward"
   use_service_connect = var.service_connect.enabled && !local.use_alb
 
   # Force numeric conversion
   alb_port = local.use_alb ? floor(var.application_load_balancer.container_port + 0) : 0
-  sc_port = local.use_service_connect ? floor(var.service_connect.port + 0) : 0
+  sc_port  = local.use_service_connect ? floor(var.service_connect.port + 0) : 0
 
   # Build port mappings as JSON string directly
   port_mappings_json = local.use_alb ? "[{\"name\":\"default\",\"containerPort\":${local.alb_port},\"hostPort\":${local.alb_port},\"protocol\":\"tcp\",\"appProtocol\":\"http\"}]" : (
     local.use_service_connect ? (
-      lookup(var.service_connect, "appProtocol", "http") == "http" ? 
+      lookup(var.service_connect, "appProtocol", "http") == "http" ?
       "[{\"name\":\"default\",\"containerPort\":${local.sc_port},\"hostPort\":${local.sc_port},\"protocol\":\"tcp\",\"appProtocol\":\"http\"}]" :
       "[{\"name\":\"default\",\"containerPort\":${local.sc_port},\"hostPort\":${local.sc_port},\"protocol\":\"tcp\"}]"
     ) : "[]"
