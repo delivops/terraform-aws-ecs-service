@@ -314,7 +314,22 @@ resource "aws_ecs_service" "ecs_service" {
       weight            = 1
       base              = 0
     }
+  }
 
+  dynamic "ordered_placement_strategy" {
+    for_each = var.placement_strategy
+    content {
+      type  = ordered_placement_strategy.value.type
+      field = ordered_placement_strategy.value.field
+    }
+  }
+
+  dynamic "placement_constraints" {
+    for_each = var.placement_constraints
+    content {
+      type       = placement_constraints.value.type
+      expression = placement_constraints.value.expression
+    }
   }
 
   dynamic "load_balancer" {

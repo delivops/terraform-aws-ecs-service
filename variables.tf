@@ -307,6 +307,34 @@ variable "log_anomaly_detection" {
   }
 }
 
+variable "placement_strategy" {
+  description = "Ordered placement strategy for ECS service (only applicable for EC2 launch type). Type can be binpack, spread, or random."
+  type = list(object({
+    type  = string
+    field = optional(string)
+  }))
+  default = []
+
+  validation {
+    condition     = alltrue([for s in var.placement_strategy : contains(["binpack", "spread", "random"], s.type)])
+    error_message = "placement_strategy type must be one of: binpack, spread, random"
+  }
+}
+
+variable "placement_constraints" {
+  description = "Placement constraints for ECS service (only applicable for EC2 launch type). Type can be distinctInstance or memberOf."
+  type = list(object({
+    type       = string
+    expression = optional(string)
+  }))
+  default = []
+
+  validation {
+    condition     = alltrue([for c in var.placement_constraints : contains(["distinctInstance", "memberOf"], c.type)])
+    error_message = "placement_constraints type must be one of: distinctInstance, memberOf"
+  }
+}
+
 variable "tags" {
   description = "A map of tags to add to all resources"
   type        = map(string)
