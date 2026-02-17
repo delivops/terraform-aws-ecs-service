@@ -183,7 +183,6 @@ This module is released under the MIT License.
 |------|---------|
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
 | <a name="requirement_cloudflare"></a> [cloudflare](#requirement\_cloudflare) | < 5.0 |
-| <a name="requirement_external"></a> [external](#requirement\_external) | >= 2.0 |
 
 ## Providers
 
@@ -191,7 +190,6 @@ This module is released under the MIT License.
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 6.8.0 |
 | <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | 4.52.1 |
-| <a name="provider_external"></a> [external](#provider\_external) | 2.3.5 |
 
 ## Modules
 
@@ -233,7 +231,6 @@ This module is released under the MIT License.
 | [aws_lb.main_alb_cloudflare](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [aws_service_discovery_http_namespace.namespace](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/service_discovery_http_namespace) | data source |
-| [external_external.listener_rules](https://registry.terraform.io/providers/hashicorp/external/latest/docs/data-sources/external) | data source |
 
 ## Inputs
 

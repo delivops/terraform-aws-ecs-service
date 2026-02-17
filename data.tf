@@ -11,21 +11,6 @@ data "aws_service_discovery_http_namespace" "namespace" {
   name  = var.ecs_cluster_name
 }
 
-data "external" "listener_rules" {
-  count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "HTTP" ? 1 : 0
-
-  program = ["bash", "-c", <<EOT
-    priorities=$(aws elbv2 describe-rules --listener-arn ${var.application_load_balancer.listener_arn} 2>/dev/null | \
-    jq -r '[.Rules[].Priority | select(. != "default")] | join(",")' 2>/dev/null)
-    if [ -z "$priorities" ]; then
-      echo '{"priorities": "0"}'
-    else
-      echo "{\"priorities\": \"$priorities\"}"
-    fi
-  EOT
-  ]
-}
-
 data "aws_lb" "main_alb" {
   count = var.application_load_balancer.enabled && var.application_load_balancer.route_53_host_zone_id != "" ? 1 : 0
 
