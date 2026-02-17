@@ -88,7 +88,6 @@ resource "aws_lb_listener_rule" "rule" {
   count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "HTTP" ? 1 : 0
 
   listener_arn = var.application_load_balancer.listener_arn
-  priority     = local.next_priority + length(var.additional_load_balancers)
 
   dynamic "action" {
     for_each = var.application_load_balancer.action_type == "forward" ? [1] : []
@@ -138,10 +137,6 @@ resource "aws_lb_listener_rule" "rule" {
     }
   }
 
-  lifecycle {
-    ignore_changes = [priority]
-  }
-
   depends_on = [aws_alb_target_group.target_group, aws_lb_listener_rule.rule_additional, aws_alb_target_group.target_group_additional]
 }
 
@@ -153,7 +148,6 @@ resource "aws_lb_listener_rule" "rule_additional" {
   }
 
   listener_arn = each.value.listener_arn
-  priority     = local.next_priority + tonumber(each.key)
 
   dynamic "action" {
     for_each = each.value.action_type == "forward" ? [1] : []
@@ -201,10 +195,6 @@ resource "aws_lb_listener_rule" "rule_additional" {
         values = [each.value.path]
       }
     }
-  }
-
-  lifecycle {
-    ignore_changes = [priority]
   }
 
   depends_on = [aws_alb_target_group.target_group_additional]
