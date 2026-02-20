@@ -119,13 +119,15 @@ variable "vpc_id" {
   type        = string
 }
 variable "security_group_ids" {
-  description = "Security group IDs for the ECS tasks"
+  description = "Security group IDs for the ECS tasks. Required when network_mode is 'awsvpc'."
   type        = list(string)
+  default     = []
 }
 
 variable "subnet_ids" {
-  description = "Subnet IDs for the ECS tasks"
+  description = "Subnet IDs for the ECS tasks. Required when network_mode is 'awsvpc'."
   type        = list(string)
+  default     = []
 }
 
 variable "assign_public_ip" {
@@ -178,6 +180,17 @@ variable "ecs_launch_type" {
   validation {
     condition     = contains(["FARGATE", "EC2"], var.ecs_launch_type)
     error_message = "Valid values for ecs_launch_type are FARGATE or EC2."
+  }
+}
+
+variable "network_mode" {
+  description = "Network mode for the ECS task definition. Fargate requires 'awsvpc'. EC2 supports 'awsvpc', 'bridge', 'host', or 'none'."
+  type        = string
+  default     = "awsvpc"
+
+  validation {
+    condition     = contains(["awsvpc", "bridge", "host", "none"], var.network_mode)
+    error_message = "Valid values for network_mode are: awsvpc, bridge, host, none."
   }
 }
 variable "deployment" {

@@ -1,5 +1,14 @@
-
 locals {
+  # Validation: Fargate requires awsvpc network mode
+  validate_fargate_network_mode = (
+    var.ecs_launch_type != "FARGATE" || var.network_mode == "awsvpc"
+  ) ? true : tobool("Fargate launch type requires network_mode = 'awsvpc'")
+
+  # Validation: awsvpc network mode requires subnet_ids and security_group_ids
+  validate_awsvpc_network_config = (
+    var.network_mode != "awsvpc" || (length(var.subnet_ids) > 0 && length(var.security_group_ids) > 0)
+  ) ? true : tobool("subnet_ids and security_group_ids are required when network_mode is 'awsvpc'")
+
   # Target group naming logic with 32-char safety
   main_target_group_name = var.application_load_balancer.target_group_name != "" ? var.application_load_balancer.target_group_name : replace(
     "${substr(var.ecs_service_name, 0, 20)}-${substr(md5("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}"), 0, 5)}-tg",
