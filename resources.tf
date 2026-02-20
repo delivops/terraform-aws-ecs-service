@@ -241,7 +241,7 @@ resource "aws_lb_listener" "tcp_listener_additional" {
 
 resource "aws_ecs_task_definition" "task_definition" {
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
-  network_mode             = "awsvpc"
+  network_mode             = var.network_mode
   requires_compatibilities = [var.ecs_launch_type]
   cpu                      = var.ecs_task_cpu
   memory                   = var.ecs_task_memory
@@ -276,10 +276,13 @@ resource "aws_ecs_service" "ecs_service" {
     rollback = var.deployment.rollback_enabled
   }
 
-  network_configuration {
-    security_groups  = var.security_group_ids
-    subnets          = var.subnet_ids
-    assign_public_ip = var.assign_public_ip
+  dynamic "network_configuration" {
+    for_each = var.network_mode == "awsvpc" ? [1] : []
+    content {
+      security_groups  = var.security_group_ids
+      subnets          = var.subnet_ids
+      assign_public_ip = var.assign_public_ip
+    }
   }
   dynamic "alarms" {
     for_each = var.deployment.cloudwatch_alarm_enabled ? [1] : []
