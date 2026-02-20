@@ -49,17 +49,12 @@ output "cloudflare_records" {
   }
 }
 
-output "sqs_autoscaling" {
-  description = "SQS autoscaling resources (policies, alarms)"
-  value = var.sqs_autoscaling.enabled ? {
-    scale_out_policy_arn = try(aws_appautoscaling_policy.sqs_scale_out[0].arn, null)
-    scale_in_policy_arn  = try(aws_appautoscaling_policy.sqs_scale_in[0].arn, null)
-    age_out_alarm_arn    = try(aws_cloudwatch_metric_alarm.sqs_age_out[0].arn, aws_cloudwatch_metric_alarm.sqs_age_out_sma[0].arn, null)
-    age_in_alarm_arn     = try(aws_cloudwatch_metric_alarm.sqs_age_in_ready[0].arn, null)
-    composite_alarm_arn  = try(aws_cloudwatch_composite_alarm.sqs_scale_in_safe[0].arn, null)
-    queue_names = {
-      scale_out = local.sqs_out_queue
-      scale_in  = local.sqs_in_queue
-    }
-  } : null
+output "log_anomaly_detector_arn" {
+  description = "ARN of the CloudWatch Logs Anomaly Detector (if enabled)"
+  value       = var.log_anomaly_detection.enabled ? aws_cloudwatch_log_anomaly_detector.this[0].arn : null
+}
+
+output "log_anomaly_detector_name" {
+  description = "Name of the CloudWatch Logs Anomaly Detector (if enabled)"
+  value       = var.log_anomaly_detection.enabled ? aws_cloudwatch_log_anomaly_detector.this[0].detector_name : null
 }

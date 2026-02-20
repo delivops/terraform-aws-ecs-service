@@ -32,6 +32,7 @@ variable "application_load_balancer" {
     health_check_threshold_healthy   = optional(number, 2)
     health_check_threshold_unhealthy = optional(number, 5)
     health_check_protocol            = optional(string, "HTTP")
+    health_check_port                = optional(string, "traffic-port")
     stickiness                       = optional(bool, false)
     stickiness_ttl                   = optional(number, 300)
     cookie_name                      = optional(string, "")
@@ -65,6 +66,7 @@ variable "additional_load_balancers" {
     health_check_threshold_healthy   = optional(number, 2)
     health_check_threshold_unhealthy = optional(number, 5)
     health_check_protocol            = optional(string, "HTTP")
+    health_check_port                = optional(string, "traffic-port")
     stickiness                       = optional(bool, false)
     stickiness_ttl                   = optional(number, 300)
     stickiness_type                  = optional(string, "app_cookie")
@@ -117,13 +119,15 @@ variable "vpc_id" {
   type        = string
 }
 variable "security_group_ids" {
-  description = "Security group IDs for the ECS tasks"
+  description = "Security group IDs for the ECS tasks. Required when network_mode is 'awsvpc'."
   type        = list(string)
+  default     = []
 }
 
 variable "subnet_ids" {
-  description = "Subnet IDs for the ECS tasks"
+  description = "Subnet IDs for the ECS tasks. Required when network_mode is 'awsvpc'."
   type        = list(string)
+  default     = []
 }
 
 variable "assign_public_ip" {
@@ -176,6 +180,17 @@ variable "ecs_launch_type" {
   validation {
     condition     = contains(["FARGATE", "EC2"], var.ecs_launch_type)
     error_message = "Valid values for ecs_launch_type are FARGATE or EC2."
+  }
+}
+
+variable "network_mode" {
+  description = "Network mode for the ECS task definition. Fargate requires 'awsvpc'. EC2 supports 'awsvpc', 'bridge', 'host', or 'none'."
+  type        = string
+  default     = "awsvpc"
+
+  validation {
+    condition     = contains(["awsvpc", "bridge", "host", "none"], var.network_mode)
+    error_message = "Valid values for network_mode are: awsvpc, bridge, host, none."
   }
 }
 variable "deployment" {
@@ -341,6 +356,58 @@ variable "ecr" {
     versioned_retention = optional(number, 30) # How many versioned tags to keep
   })
   default = {}
+}
+
+variable "log_anomaly_detection" {
+  description = "CloudWatch Logs Anomaly Detection configuration"
+  type = object({
+    enabled                 = optional(bool, false)
+    evaluation_frequency    = optional(string, "TEN_MIN")
+    anomaly_visibility_time = optional(number, 7)
+    filter_pattern          = optional(string, "")
+  })
+  default = {}
+
+  validation {
+    condition = contains(
+      ["ONE_MIN", "FIVE_MIN", "TEN_MIN", "FIFTEEN_MIN", "THIRTY_MIN", "ONE_HOUR"],
+      var.log_anomaly_detection.evaluation_frequency
+    )
+    error_message = "evaluation_frequency must be one of: ONE_MIN, FIVE_MIN, TEN_MIN, FIFTEEN_MIN, THIRTY_MIN, ONE_HOUR"
+  }
+
+  validation {
+    condition     = var.log_anomaly_detection.anomaly_visibility_time >= 7 && var.log_anomaly_detection.anomaly_visibility_time <= 90
+    error_message = "anomaly_visibility_time must be between 7 and 90 days"
+  }
+}
+
+variable "placement_strategy" {
+  description = "Ordered placement strategy for ECS service (only applicable for EC2 launch type). Type can be binpack, spread, or random."
+  type = list(object({
+    type  = string
+    field = optional(string)
+  }))
+  default = []
+
+  validation {
+    condition     = alltrue([for s in var.placement_strategy : contains(["binpack", "spread", "random"], s.type)])
+    error_message = "placement_strategy type must be one of: binpack, spread, random"
+  }
+}
+
+variable "placement_constraints" {
+  description = "Placement constraints for ECS service (only applicable for EC2 launch type). Type can be distinctInstance or memberOf."
+  type = list(object({
+    type       = string
+    expression = optional(string)
+  }))
+  default = []
+
+  validation {
+    condition     = alltrue([for c in var.placement_constraints : contains(["distinctInstance", "memberOf"], c.type)])
+    error_message = "placement_constraints type must be one of: distinctInstance, memberOf"
+  }
 }
 
 variable "tags" {

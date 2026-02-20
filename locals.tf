@@ -1,10 +1,13 @@
-
 locals {
-  existing_priorities_string = var.application_load_balancer != {} && var.application_load_balancer.listener_arn != "" ? try(data.external.listener_rules[0].result.priorities, "") : ""
-  existing_priorities        = local.existing_priorities_string != "" ? split(",", local.existing_priorities_string) : []
+  # Validation: Fargate requires awsvpc network mode
+  validate_fargate_network_mode = (
+    var.ecs_launch_type != "FARGATE" || var.network_mode == "awsvpc"
+  ) ? true : tobool("Fargate launch type requires network_mode = 'awsvpc'")
 
-  max_priority  = length(local.existing_priorities) > 0 ? max(local.existing_priorities...) : 0
-  next_priority = local.max_priority + 1
+  # Validation: awsvpc network mode requires subnet_ids and security_group_ids
+  validate_awsvpc_network_config = (
+    var.network_mode != "awsvpc" || (length(var.subnet_ids) > 0 && length(var.security_group_ids) > 0)
+  ) ? true : tobool("subnet_ids and security_group_ids are required when network_mode is 'awsvpc'")
 
   # Target group naming logic with 32-char safety
   main_target_group_name = var.application_load_balancer.target_group_name != "" ? var.application_load_balancer.target_group_name : replace(

@@ -3,6 +3,16 @@ resource "aws_cloudwatch_log_group" "ecs_log_group" {
   retention_in_days = var.log_retention_days
 }
 
+resource "aws_cloudwatch_log_anomaly_detector" "this" {
+  count                   = var.log_anomaly_detection.enabled ? 1 : 0
+  detector_name           = aws_cloudwatch_log_group.ecs_log_group.name
+  log_group_arn_list      = [aws_cloudwatch_log_group.ecs_log_group.arn]
+  evaluation_frequency    = var.log_anomaly_detection.evaluation_frequency
+  anomaly_visibility_time = var.log_anomaly_detection.anomaly_visibility_time
+  filter_pattern          = var.log_anomaly_detection.filter_pattern != "" ? var.log_anomaly_detection.filter_pattern : null
+  enabled                 = true
+}
+
 resource "aws_alb_target_group" "target_group" {
   count                = var.application_load_balancer.enabled ? 1 : 0
   name                 = local.main_target_group_name
@@ -31,6 +41,7 @@ resource "aws_alb_target_group" "target_group" {
     timeout             = var.application_load_balancer.health_check_timeout_sec
     path                = var.application_load_balancer.health_check_protocol == "HTTP" ? var.application_load_balancer.health_check_path : null
     unhealthy_threshold = var.application_load_balancer.health_check_threshold_unhealthy
+    port                = var.application_load_balancer.health_check_port
   }
   depends_on = [aws_alb_target_group.target_group_additional]
 }
@@ -65,6 +76,7 @@ resource "aws_alb_target_group" "target_group_additional" {
     timeout             = each.value.health_check_timeout_sec
     path                = each.value.health_check_protocol == "HTTP" ? each.value.health_check_path : null
     unhealthy_threshold = each.value.health_check_threshold_unhealthy
+    port                = each.value.health_check_port
   }
 }
 
@@ -76,7 +88,6 @@ resource "aws_lb_listener_rule" "rule" {
   count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "HTTP" ? 1 : 0
 
   listener_arn = var.application_load_balancer.listener_arn
-  priority     = local.next_priority + length(var.additional_load_balancers)
 
   dynamic "action" {
     for_each = var.application_load_balancer.action_type == "forward" ? [1] : []
@@ -126,10 +137,6 @@ resource "aws_lb_listener_rule" "rule" {
     }
   }
 
-  lifecycle {
-    ignore_changes = [priority]
-  }
-
   depends_on = [aws_alb_target_group.target_group, aws_lb_listener_rule.rule_additional, aws_alb_target_group.target_group_additional]
 }
 
@@ -141,7 +148,6 @@ resource "aws_lb_listener_rule" "rule_additional" {
   }
 
   listener_arn = each.value.listener_arn
-  priority     = local.next_priority + tonumber(each.key)
 
   dynamic "action" {
     for_each = each.value.action_type == "forward" ? [1] : []
@@ -191,10 +197,6 @@ resource "aws_lb_listener_rule" "rule_additional" {
     }
   }
 
-  lifecycle {
-    ignore_changes = [priority]
-  }
-
   depends_on = [aws_alb_target_group.target_group_additional]
 }
 
@@ -239,7 +241,7 @@ resource "aws_lb_listener" "tcp_listener_additional" {
 
 resource "aws_ecs_task_definition" "task_definition" {
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
-  network_mode             = "awsvpc"
+  network_mode             = var.network_mode
   requires_compatibilities = [var.ecs_launch_type]
   cpu                      = var.ecs_task_cpu
   memory                   = var.ecs_task_memory
@@ -274,10 +276,13 @@ resource "aws_ecs_service" "ecs_service" {
     rollback = var.deployment.rollback_enabled
   }
 
-  network_configuration {
-    security_groups  = var.security_group_ids
-    subnets          = var.subnet_ids
-    assign_public_ip = var.assign_public_ip
+  dynamic "network_configuration" {
+    for_each = var.network_mode == "awsvpc" ? [1] : []
+    content {
+      security_groups  = var.security_group_ids
+      subnets          = var.subnet_ids
+      assign_public_ip = var.assign_public_ip
+    }
   }
   dynamic "alarms" {
     for_each = var.deployment.cloudwatch_alarm_enabled ? [1] : []
@@ -302,7 +307,22 @@ resource "aws_ecs_service" "ecs_service" {
       weight            = 1
       base              = 0
     }
+  }
 
+  dynamic "ordered_placement_strategy" {
+    for_each = var.placement_strategy
+    content {
+      type  = ordered_placement_strategy.value.type
+      field = ordered_placement_strategy.value.field
+    }
+  }
+
+  dynamic "placement_constraints" {
+    for_each = var.placement_constraints
+    content {
+      type       = placement_constraints.value.type
+      expression = placement_constraints.value.expression
+    }
   }
 
   dynamic "load_balancer" {
