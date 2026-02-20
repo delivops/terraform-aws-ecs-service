@@ -550,7 +550,7 @@ resource "aws_cloudwatch_metric_alarm" "sqs_age_out_sma" {
 
   metric_query {
     id          = "age_sma"
-    expression  = join(" + ", [for i in range(local.sqs_age_sma_points) : "m${i}"]) + " / ${local.sqs_age_sma_points}"
+    expression  = "(${join(" + ", [for i in range(local.sqs_age_sma_points) : "m${i}"])}) / ${local.sqs_age_sma_points}"
     label       = "Age SMA"
     return_data = true
   }

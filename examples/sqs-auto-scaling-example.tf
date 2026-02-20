@@ -27,7 +27,7 @@ module "sqs_ecs_service_custom" {
   source = "../"
 
   ecs_cluster_name   = var.cluster_name
-  ecs_service_name   = "sqs"
+  ecs_service_name   = "sqs-custom"
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
@@ -67,7 +67,7 @@ module "sqs_ecs_service_stable" {
   source = "../"
 
   ecs_cluster_name   = var.cluster_name
-  ecs_service_name   = "sqs"
+  ecs_service_name   = "sqs-stable"
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
