@@ -25,16 +25,38 @@ locals {
     )
   }
 
-  scale_in_queue_name = (
-    var.sqs_auto_scaling.queue_name != "" ?
-    var.sqs_auto_scaling.queue_name :
-    var.sqs_auto_scaling.scale_in_queue_name
+  # SQS Autoscaling queue name resolution
+  sqs_out_queue = coalesce(
+    try(var.sqs_autoscaling.scale_out_queue_name, null),
+    try(var.sqs_autoscaling.queue_name, null)
+  )
+  sqs_in_queue = coalesce(
+    try(var.sqs_autoscaling.scale_in_queue_name, null),
+    try(var.sqs_autoscaling.queue_name, null)
   )
 
-  scale_out_queue_name = (
-    var.sqs_auto_scaling.queue_name != "" ?
-    var.sqs_auto_scaling.queue_name :
-    var.sqs_auto_scaling.scale_out_queue_name
+  # SQS Autoscaling defaults (hardcoded module best practices)
+  sqs_require_empty_for_scale_in = coalesce(try(var.sqs_autoscaling.require_empty_for_scale_in, null), false)
+  sqs_empty_eval_periods         = coalesce(try(var.sqs_autoscaling.empty_eval_periods, null), 3)
+  sqs_empty_period_seconds       = coalesce(try(var.sqs_autoscaling.empty_period_seconds, null), 300)
+  sqs_scale_out_cooldown         = coalesce(try(var.sqs_autoscaling.scale_out_cooldown, null), 60)
+  sqs_scale_in_cooldown          = coalesce(try(var.sqs_autoscaling.scale_in_cooldown, null), 600)
+  sqs_scale_in_step              = coalesce(try(var.sqs_autoscaling.scale_in_step, null), -1)
+  sqs_aggregation_type_out       = coalesce(try(var.sqs_autoscaling.aggregation_type_out, null), "Average")
+  sqs_aggregation_type_in        = coalesce(try(var.sqs_autoscaling.aggregation_type_in, null), "Average")
+  sqs_treat_missing_out          = coalesce(try(var.sqs_autoscaling.treat_missing_out, null), "notBreaching")
+  sqs_treat_missing_in           = coalesce(try(var.sqs_autoscaling.treat_missing_in, null), "ignore")
+  sqs_age_sma_points             = coalesce(try(var.sqs_autoscaling.age_sma_points, null), 0)
+
+  # Default scale-out step ladder if not provided
+  sqs_scale_out_steps_default = [
+    { lower = 0, upper = 100, change = 2 },
+    { lower = 100, upper = 500, change = 5 },
+    { lower = 500, upper = null, change = 15 }
+  ]
+  sqs_scale_out_steps = coalesce(
+    try(var.sqs_autoscaling.scale_out_steps, null),
+    local.sqs_scale_out_steps_default
   )
 
 

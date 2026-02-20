@@ -9,7 +9,10 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 - Creates an ECS service with Fargate launch type
 - Configurable load balancer target group with health checks
 - Support for host-based and path-based routing rules
-- Auto-scaling capabilities based on CPU and Memory utilization
+- Auto-scaling capabilities:
+  - CPU and Memory utilization-based scaling
+  - **Advanced SQS-based autoscaling with latency-first approach**
+  - Scheduled scaling
 - CloudWatch logging integration
 - Deployment circuit breaker and CloudWatch alarms integration
 - DNS record management for both Route53 and Cloudflare
@@ -164,6 +167,129 @@ provider "cloudflare" {
 }
 ```
 
+## SQS-based Autoscaling
+
+This module supports advanced SQS-based autoscaling with best practices baked in. The implementation scales based on **message latency** (`ApproximateAgeOfOldestMessage`) rather than queue backlog, providing SLA-driven scaling behavior.
+
+### Key Features
+
+- **Latency-first scaling**: Scales based on how long messages wait, not how many are in the queue
+- **Asymmetric timing**: Fast scale-out (60s periods), conservative scale-in (300s periods)
+- **Safe scale-in**: Composite alarm ensures queue is truly empty before scaling in
+- **Proportional step ladder**: Aggressive scale-out when latency is high
+- **Sensible defaults**: Minimal configuration required for production use
+
+### Quick Start
+
+Minimal configuration with opinionated defaults:
+
+```hcl
+module "queue_processor" {
+  source = "delivops/ecs-service/aws"
+  version = "xxx"
+
+  ecs_cluster_name   = "my-cluster"
+  ecs_service_name   = "image-processor"
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
+  security_group_ids = var.security_group_ids
+
+  sqs_autoscaling = {
+    enabled               = true
+    queue_name            = "image-processing-queue"
+    min_replicas          = 0
+    max_replicas          = 500
+    scale_out_age_seconds = 120  # Scale out when messages are 2+ minutes old
+    scale_in_age_seconds  = 20   # Scale in when messages are under 20 seconds old
+  }
+}
+```
+
+### Advanced Configuration
+
+Customize the step ladder and timings:
+
+```hcl
+sqs_autoscaling = {
+  enabled               = true
+  queue_name            = "jobs-queue"
+  min_replicas          = 2
+  max_replicas          = 300
+  scale_out_age_seconds = 90
+  scale_in_age_seconds  = 15
+
+  # Custom proportional step ladder
+  scale_out_steps = [
+    { lower = 0,   upper = 60,  change = 2  },  # Age 0-60s: add 2 tasks
+    { lower = 60,  upper = 240, change = 6  },  # Age 60-240s: add 6 tasks  
+    { lower = 240, upper = null, change = 18 } # Age 240s+: add 18 tasks
+  ]
+
+  # Custom cooldowns
+  scale_out_cooldown = 90
+  scale_in_cooldown  = 900
+
+  # Slower scale-in
+  scale_in_step = -2
+
+  # Enable smoothing (3-point moving average)
+  age_sma_points = 3
+}
+```
+
+### Why Latency over Backlog?
+
+**Old approach** (backlog-based):
+- ❌ Hard to set meaningful thresholds
+- ❌ Same backlog means different things at different processing speeds
+- ❌ Doesn't reflect actual user experience
+
+**New approach** (latency-based):
+- ✅ Direct measure of SLA compliance
+- ✅ Easy to reason about ("jobs should not wait more than 2 minutes")
+- ✅ Adapts to processing speed automatically
+
+### Default Behavior
+
+When you don't specify `scale_out_steps`, the module uses this proportional ladder:
+
+```hcl
+[
+  { lower = 0,   upper = 100, change = 2  },  # 0-100s age: add 2 tasks
+  { lower = 100, upper = 500, change = 5  },  # 100-500s: add 5 tasks
+  { lower = 500, upper = null, change = 15 }  # 500s+: add 15 tasks
+]
+```
+
+#### Scale-In Behavior
+
+**By default** (`require_empty_for_scale_in = false`), scale-in happens when:
+- Age stays below threshold (`scale_in_age_seconds`) for 15 minutes (3 evaluations × 5 minutes)
+- This is **cost-efficient**: if messages are being processed quickly, you're over-provisioned
+
+**For maximum stability** (`require_empty_for_scale_in = true`), scale-in requires:
+1. Age below threshold (`scale_in_age_seconds`)
+2. Visible messages count is zero
+3. In-flight messages count is zero
+
+Use `true` when you want to ensure all work is completed before reducing capacity, or when your workload has high oscillation risk.
+
+### Migration from Old Schema
+
+⚠️ **Breaking Change**: The `sqs_auto_scaling` variable has been redesigned as `sqs_autoscaling` (no underscore).
+
+See [SQS_AUTOSCALING_MIGRATION.md](./SQS_AUTOSCALING_MIGRATION.md) for detailed migration instructions.
+
+### Examples
+
+See [examples/sqs-auto-scaling-example.tf](./examples/sqs-auto-scaling-example.tf) for complete examples including:
+- Minimal configuration with defaults
+- Custom step ladder and timings
+- Stability mode with composite alarm
+- Smoothed metrics with SMA
+
+**Rationale for age-driven scale-in:** The 15-minute detection window (300s periods × 3 evaluations) provides strong hysteresis. If age stays low throughout this window, it's a clear signal that capacity exceeds demand. This is more cost-efficient than waiting for the queue to be completely empty.
+
 ## Notes
 
 - The module uses ARM64 architecture by default
@@ -188,8 +314,8 @@ This module is released under the MIT License.
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.8.0 |
-| <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | 4.52.1 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.16.0 |
+| <a name="provider_cloudflare"></a> [cloudflare](#provider\_cloudflare) | 4.52.5 |
 
 ## Modules
 
@@ -205,14 +331,18 @@ This module is released under the MIT License.
 | [aws_alb_target_group.target_group_additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/alb_target_group) | resource |
 | [aws_appautoscaling_policy.scale_by_cpu_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
 | [aws_appautoscaling_policy.scale_by_memory_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
-| [aws_appautoscaling_policy.scale_in_by_sqs_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
-| [aws_appautoscaling_policy.scale_out_by_sqs_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
+| [aws_appautoscaling_policy.sqs_scale_in](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
+| [aws_appautoscaling_policy.sqs_scale_out](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
 | [aws_appautoscaling_scheduled_action.ecs_scheduled_scaling](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_scheduled_action) | resource |
 | [aws_appautoscaling_target.ecs_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_target) | resource |
+| [aws_cloudwatch_composite_alarm.sqs_scale_in_safe](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_composite_alarm) | resource |
 | [aws_cloudwatch_log_anomaly_detector.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_anomaly_detector) | resource |
 | [aws_cloudwatch_log_group.ecs_log_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
-| [aws_cloudwatch_metric_alarm.in_sqs_auto_scaling](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
-| [aws_cloudwatch_metric_alarm.out_sqs_auto_scaling](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
+| [aws_cloudwatch_metric_alarm.sqs_age_in_ready](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
+| [aws_cloudwatch_metric_alarm.sqs_age_out](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
+| [aws_cloudwatch_metric_alarm.sqs_age_out_sma](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
+| [aws_cloudwatch_metric_alarm.sqs_notvisible_zero](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
+| [aws_cloudwatch_metric_alarm.sqs_visible_zero](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
 | [aws_ecs_service.ecs_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service) | resource |
 | [aws_ecs_task_definition.task_definition](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
 | [aws_lb_listener.tcp_listener](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
@@ -263,7 +393,7 @@ This module is released under the MIT License.
 | <a name="input_schedule_auto_scaling"></a> [schedule\_auto\_scaling](#input\_schedule\_auto\_scaling) | Scheduled auto scaling configuration | <pre>object({<br/>    enabled = optional(bool, false)<br/>    schedules = optional(list(object({<br/>      schedule_name       = optional(string, "")<br/>      min_replicas        = optional(number, 0)<br/>      max_replicas        = optional(number, 1)<br/>      schedule_expression = optional(string, "cron(0 0 1 * ? *)") # cron expression<br/>      time_zone           = optional(string, "Asia/Jerusalem")<br/>    })), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for the ECS tasks. Required when network\_mode is 'awsvpc'. | `list(string)` | `[]` | no |
 | <a name="input_service_connect"></a> [service\_connect](#input\_service\_connect) | n/a | <pre>object({<br/>    enabled     = optional(bool, false)<br/>    type        = optional(string, "client-only")<br/>    port        = optional(number, 80)<br/>    name        = optional(string, "service")<br/>    timeout     = optional(number, 15)<br/>    appProtocol = optional(string, "http")<br/>    additional_ports = optional(list(object({<br/>      name        = string<br/>      port        = number<br/>      appProtocol = optional(string, "http")<br/>    })), [])<br/>  })</pre> | `{}` | no |
-| <a name="input_sqs_auto_scaling"></a> [sqs\_auto\_scaling](#input\_sqs\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    enabled                       = optional(bool, false)<br/>    min_replicas                  = optional(number, 0)<br/>    max_replicas                  = optional(number, 1)<br/>    scale_in_queue_name           = optional(string, "")<br/>    scale_out_queue_name          = optional(string, "")<br/>    queue_name                    = optional(string, "")<br/>    scale_in_step                 = optional(number, 1)<br/>    scale_out_step                = optional(number, 1)<br/>    scale_in_cooldown             = optional(number, 300)<br/>    scale_out_cooldown            = optional(number, 60)<br/>    scale_in_threshold            = optional(number, 0)<br/>    scale_out_threshold           = optional(number, 1)<br/>    scale_out_interval            = optional(number, 60)<br/>    scale_in_interval             = optional(number, 120)<br/>    scale_in_datapoints_to_alarm  = optional(number, 1)<br/>    scale_out_datapoints_to_alarm = optional(number, 1)<br/>    scale_in_metric_name          = optional(string, "ApproximateNumberOfMessagesVisible")<br/>    scale_out_metric_name         = optional(string, "ApproximateNumberOfMessagesVisible")<br/>  })</pre> | `{}` | no |
+| <a name="input_sqs_autoscaling"></a> [sqs\_autoscaling](#input\_sqs\_autoscaling) | Opinionated SQS autoscaling config for this ECS service. | <pre>object({<br/>    enabled = optional(bool, false)<br/><br/>    # Queue names — either set queue_name for both directions, or set each explicitly<br/>    queue_name           = optional(string)<br/>    scale_out_queue_name = optional(string)<br/>    scale_in_queue_name  = optional(string)<br/><br/>    # Capacity guardrails (required when enabled)<br/>    min_replicas = optional(number)<br/>    max_replicas = optional(number)<br/><br/>    # SLA thresholds for AgeOfOldestMessage (seconds)<br/>    scale_out_age_seconds = optional(number)<br/>    scale_in_age_seconds  = optional(number)<br/><br/>    # Scale-in behavior (defaults baked in)<br/>    # If true, requires queue to be completely empty before scaling in (more stable)<br/>    # If false (default), scales in based on age alone (more cost-efficient)<br/>    require_empty_for_scale_in = optional(bool)<br/>    empty_eval_periods         = optional(number)<br/>    empty_period_seconds       = optional(number)<br/><br/>    # Step ladders (scale-out proportional)<br/>    scale_out_steps = optional(list(object({<br/>      lower  = number<br/>      upper  = optional(number)<br/>      change = number<br/>    })))<br/><br/>    # Scale-in step size (gentle shrink)<br/>    scale_in_step = optional(number)<br/><br/>    # Cooldowns (override if needed)<br/>    scale_out_cooldown = optional(number)<br/>    scale_in_cooldown  = optional(number)<br/><br/>    # Smoothing for Age via metric math (simple SMA on 60s periods). 0 disables.<br/>    age_sma_points = optional(number)<br/><br/>    # Aggregation & missing data behavior<br/>    aggregation_type_out = optional(string)<br/>    aggregation_type_in  = optional(string)<br/>    treat_missing_out    = optional(string)<br/>    treat_missing_in     = optional(string)<br/>  })</pre> | `{}` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Subnet IDs for the ECS tasks. Required when network\_mode is 'awsvpc'. | `list(string)` | `[]` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to add to all resources | `map(string)` | `{}` | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC | `string` | n/a | yes |

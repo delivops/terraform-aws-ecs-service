@@ -394,17 +394,17 @@ resource "aws_ecs_service" "ecs_service" {
 }
 
 resource "aws_appautoscaling_target" "ecs_target" {
-  count = (var.cpu_auto_scaling.enabled || var.memory_auto_scaling.enabled || var.sqs_auto_scaling.enabled || var.schedule_auto_scaling.enabled) ? 1 : 0
+  count = (var.cpu_auto_scaling.enabled || var.memory_auto_scaling.enabled || var.sqs_autoscaling.enabled || var.schedule_auto_scaling.enabled) ? 1 : 0
   min_capacity = max(
     try(var.cpu_auto_scaling.min_replicas, 0),
     try(var.memory_auto_scaling.min_replicas, 0),
-    try(var.sqs_auto_scaling.min_replicas, 0),
+    try(var.sqs_autoscaling.min_replicas, 0),
     try(var.schedule_auto_scaling.min_replicas, 0)
   )
   max_capacity = max(
     try(var.cpu_auto_scaling.max_replicas, 0),
     try(var.memory_auto_scaling.max_replicas, 0),
-    try(var.sqs_auto_scaling.max_replicas, 0),
+    try(var.sqs_autoscaling.max_replicas, 0),
     try(var.schedule_auto_scaling.max_replicas, 0)
   )
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
@@ -475,97 +475,217 @@ resource "aws_appautoscaling_policy" "scale_by_memory_policy" {
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
 
-resource "aws_appautoscaling_policy" "scale_out_by_sqs_policy" {
-  count              = var.sqs_auto_scaling.enabled ? 1 : 0
-  name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-out-by-sqs-policy"
+###############################################################################
+# SQS AUTO SCALING - SCALE OUT POLICY (Proportional Step Ladder)
+###############################################################################
+resource "aws_appautoscaling_policy" "sqs_scale_out" {
+  count              = var.sqs_autoscaling.enabled ? 1 : 0
+  name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-scale-out"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
   scalable_dimension = "ecs:service:DesiredCount"
   policy_type        = "StepScaling"
-  step_scaling_policy_configuration {
-    adjustment_type          = "ChangeInCapacity"
-    cooldown                 = var.sqs_auto_scaling.scale_out_cooldown
-    metric_aggregation_type  = "Maximum"
-    min_adjustment_magnitude = 0
 
-    step_adjustment {
-      metric_interval_lower_bound = 0
-      scaling_adjustment          = var.sqs_auto_scaling.scale_out_step
+  step_scaling_policy_configuration {
+    adjustment_type         = "ChangeInCapacity"
+    cooldown                = local.sqs_scale_out_cooldown
+    metric_aggregation_type = local.sqs_aggregation_type_out
+
+    dynamic "step_adjustment" {
+      for_each = local.sqs_scale_out_steps
+      content {
+        metric_interval_lower_bound = step_adjustment.value.lower
+        metric_interval_upper_bound = step_adjustment.value.upper
+        scaling_adjustment          = step_adjustment.value.change
+      }
     }
   }
+
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
 
-resource "aws_appautoscaling_policy" "scale_in_by_sqs_policy" {
-  count              = var.sqs_auto_scaling.enabled ? 1 : 0
-  name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/scale-in-by-sqs-policy"
+###############################################################################
+# SQS AUTO SCALING - SCALE IN POLICY (Conservative single step)
+###############################################################################
+resource "aws_appautoscaling_policy" "sqs_scale_in" {
+  count              = var.sqs_autoscaling.enabled ? 1 : 0
+  name               = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-scale-in"
   service_namespace  = "ecs"
   resource_id        = "service/${var.ecs_cluster_name}/${var.ecs_service_name}"
   scalable_dimension = "ecs:service:DesiredCount"
   policy_type        = "StepScaling"
 
   step_scaling_policy_configuration {
-    adjustment_type          = "ChangeInCapacity"
-    cooldown                 = var.sqs_auto_scaling.scale_in_cooldown
-    metric_aggregation_type  = "Maximum"
-    min_adjustment_magnitude = 0
+    adjustment_type         = "ChangeInCapacity"
+    cooldown                = local.sqs_scale_in_cooldown
+    metric_aggregation_type = local.sqs_aggregation_type_in
 
     step_adjustment {
       metric_interval_upper_bound = 0
-      scaling_adjustment          = -1 * var.sqs_auto_scaling.scale_in_step
+      scaling_adjustment          = local.sqs_scale_in_step
     }
   }
+
   depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_target.ecs_target]
 }
 
 ###############################################################################
-# SCALE OUT SQS AUTO SCALING ALARM
+# SQS AUTO SCALING - SCALE OUT ALARM (Age-based, fast detection)
 ###############################################################################
-resource "aws_cloudwatch_metric_alarm" "out_sqs_auto_scaling" {
-  count               = var.sqs_auto_scaling.enabled ? 1 : 0
-  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-out-auto-scaling"
+resource "aws_cloudwatch_metric_alarm" "sqs_age_out" {
+  count               = var.sqs_autoscaling.enabled && local.sqs_age_sma_points <= 1 ? 1 : 0
+  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-age-out"
   comparison_operator = "GreaterThanOrEqualToThreshold"
-  evaluation_periods  = var.sqs_auto_scaling.scale_out_datapoints_to_alarm
-  threshold           = var.sqs_auto_scaling.scale_out_threshold # e.g., 100
-  alarm_description   = "Scale OUT if SQS message count are too high"
-  datapoints_to_alarm = var.sqs_auto_scaling.scale_out_datapoints_to_alarm
-  alarm_actions       = [aws_appautoscaling_policy.scale_out_by_sqs_policy[0].arn]
+  evaluation_periods  = 3
+  threshold           = var.sqs_autoscaling.scale_out_age_seconds
+  alarm_description   = "Scale OUT when SQS ApproximateAgeOfOldestMessage exceeds ${var.sqs_autoscaling.scale_out_age_seconds}s"
+  datapoints_to_alarm = 3
+  alarm_actions       = [aws_appautoscaling_policy.sqs_scale_out[0].arn]
+  treat_missing_data  = local.sqs_treat_missing_out
+
+  namespace   = "AWS/SQS"
+  metric_name = "ApproximateAgeOfOldestMessage"
+  period      = 60
+  statistic   = "Average"
+  dimensions = {
+    QueueName = local.sqs_out_queue
+  }
+
+  depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_policy.sqs_scale_out]
+}
+
+###############################################################################
+# SQS AUTO SCALING - SCALE OUT ALARM with SMA (Age-based, smoothed)
+###############################################################################
+resource "aws_cloudwatch_metric_alarm" "sqs_age_out_sma" {
+  count               = var.sqs_autoscaling.enabled && local.sqs_age_sma_points > 1 ? 1 : 0
+  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-age-out"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 3
+  threshold           = var.sqs_autoscaling.scale_out_age_seconds
+  alarm_description   = "Scale OUT when SQS ApproximateAgeOfOldestMessage (${local.sqs_age_sma_points}-point SMA) exceeds ${var.sqs_autoscaling.scale_out_age_seconds}s"
+  datapoints_to_alarm = 3
+  alarm_actions       = [aws_appautoscaling_policy.sqs_scale_out[0].arn]
+  treat_missing_data  = local.sqs_treat_missing_out
+
+  metric_query {
+    id          = "age_sma"
+    expression  = "(${join(" + ", [for i in range(local.sqs_age_sma_points) : "m${i}"])}) / ${local.sqs_age_sma_points}"
+    label       = "Age SMA"
+    return_data = true
+  }
+
+  dynamic "metric_query" {
+    for_each = range(local.sqs_age_sma_points)
+    content {
+      id = "m${metric_query.value}"
+      metric {
+        metric_name = "ApproximateAgeOfOldestMessage"
+        namespace   = "AWS/SQS"
+        period      = 60
+        stat        = "Average"
+        dimensions = {
+          QueueName = local.sqs_out_queue
+        }
+      }
+      return_data = false
+    }
+  }
+
+  depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_policy.sqs_scale_out]
+}
+
+###############################################################################
+# SQS AUTO SCALING - SCALE IN READINESS ALARM (Age-based, conservative)
+###############################################################################
+resource "aws_cloudwatch_metric_alarm" "sqs_age_in_ready" {
+  count               = var.sqs_autoscaling.enabled ? 1 : 0
+  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-age-in-ready"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = 3
+  threshold           = var.sqs_autoscaling.scale_in_age_seconds
+  alarm_description   = "Scale IN readiness: ApproximateAgeOfOldestMessage below ${var.sqs_autoscaling.scale_in_age_seconds}s"
+  datapoints_to_alarm = 3
+  treat_missing_data  = local.sqs_treat_missing_in
+
+  # If require_empty_for_scale_in is false, trigger scale-in directly
+  alarm_actions = local.sqs_require_empty_for_scale_in ? [] : [aws_appautoscaling_policy.sqs_scale_in[0].arn]
+
+  namespace   = "AWS/SQS"
+  metric_name = "ApproximateAgeOfOldestMessage"
+  period      = 300
+  statistic   = "Average"
+  dimensions = {
+    QueueName = local.sqs_in_queue
+  }
+
+  depends_on = [aws_ecs_service.ecs_service, aws_appautoscaling_policy.sqs_scale_in]
+}
+
+###############################################################################
+# SQS AUTO SCALING - QUEUE EMPTY CHECKS (for safe scale-in)
+###############################################################################
+resource "aws_cloudwatch_metric_alarm" "sqs_visible_zero" {
+  count               = var.sqs_autoscaling.enabled && local.sqs_require_empty_for_scale_in ? 1 : 0
+  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-visible-zero"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = local.sqs_empty_eval_periods
+  threshold           = 0
+  alarm_description   = "Queue has no visible messages"
+  datapoints_to_alarm = local.sqs_empty_eval_periods
   treat_missing_data  = "ignore"
 
   namespace   = "AWS/SQS"
-  metric_name = var.sqs_auto_scaling.scale_out_metric_name
-  period      = var.sqs_auto_scaling.scale_out_interval
+  metric_name = "ApproximateNumberOfMessagesVisible"
+  period      = local.sqs_empty_period_seconds
   statistic   = "Maximum"
   dimensions = {
-    QueueName = local.scale_out_queue_name
+    QueueName = local.sqs_in_queue
+  }
+
+  depends_on = [aws_ecs_service.ecs_service]
+}
+
+resource "aws_cloudwatch_metric_alarm" "sqs_notvisible_zero" {
+  count               = var.sqs_autoscaling.enabled && local.sqs_require_empty_for_scale_in ? 1 : 0
+  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-notvisible-zero"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = local.sqs_empty_eval_periods
+  threshold           = 0
+  alarm_description   = "Queue has no in-flight messages"
+  datapoints_to_alarm = local.sqs_empty_eval_periods
+  treat_missing_data  = "ignore"
+
+  namespace   = "AWS/SQS"
+  metric_name = "ApproximateNumberOfMessagesNotVisible"
+  period      = local.sqs_empty_period_seconds
+  statistic   = "Maximum"
+  dimensions = {
+    QueueName = local.sqs_in_queue
   }
 
   depends_on = [aws_ecs_service.ecs_service]
 }
 
 ###############################################################################
-# SCALE IN SQS AUTO SCALING ALARM
+# SQS AUTO SCALING - COMPOSITE SCALE-IN SAFETY ALARM
 ###############################################################################
-resource "aws_cloudwatch_metric_alarm" "in_sqs_auto_scaling" {
-  count               = var.sqs_auto_scaling.enabled ? 1 : 0
-  alarm_name          = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-in-auto-scaling"
-  comparison_operator = "LessThanOrEqualToThreshold"
-  evaluation_periods  = var.sqs_auto_scaling.scale_in_datapoints_to_alarm
-  threshold           = var.sqs_auto_scaling.scale_in_threshold # e.g., 10
-  alarm_description   = "Scale IN if SQS message count are too low"
-  datapoints_to_alarm = var.sqs_auto_scaling.scale_in_datapoints_to_alarm
-  alarm_actions       = [aws_appautoscaling_policy.scale_in_by_sqs_policy[0].arn]
-  treat_missing_data  = "ignore"
+resource "aws_cloudwatch_composite_alarm" "sqs_scale_in_safe" {
+  count             = var.sqs_autoscaling.enabled && local.sqs_require_empty_for_scale_in ? 1 : 0
+  alarm_name        = "${var.ecs_cluster_name}/${var.ecs_service_name}/sqs-scale-in-safe"
+  alarm_description = "Safe to scale IN: age low AND queue empty (visible AND not-visible)"
 
-  namespace   = "AWS/SQS"
-  metric_name = var.sqs_auto_scaling.scale_in_metric_name
-  period      = var.sqs_auto_scaling.scale_in_interval
-  statistic   = "Maximum"
-  dimensions = {
-    QueueName = local.scale_in_queue_name
-  }
+  alarm_actions = [aws_appautoscaling_policy.sqs_scale_in[0].arn]
 
-  depends_on = [aws_ecs_service.ecs_service]
+  alarm_rule = "ALARM(${aws_cloudwatch_metric_alarm.sqs_age_in_ready[0].alarm_name}) AND ALARM(${aws_cloudwatch_metric_alarm.sqs_visible_zero[0].alarm_name}) AND ALARM(${aws_cloudwatch_metric_alarm.sqs_notvisible_zero[0].alarm_name})"
+
+  depends_on = [
+    aws_ecs_service.ecs_service,
+    aws_appautoscaling_policy.sqs_scale_in,
+    aws_cloudwatch_metric_alarm.sqs_age_in_ready,
+    aws_cloudwatch_metric_alarm.sqs_visible_zero,
+    aws_cloudwatch_metric_alarm.sqs_notvisible_zero
+  ]
 }
 
 
