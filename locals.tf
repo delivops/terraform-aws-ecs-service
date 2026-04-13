@@ -28,11 +28,13 @@ locals {
   # SQS Autoscaling queue name resolution
   sqs_out_queue = coalesce(
     try(var.sqs_autoscaling.scale_out_queue_name, null),
-    try(var.sqs_autoscaling.queue_name, null)
+    try(var.sqs_autoscaling.queue_name, null),
+    ""
   )
   sqs_in_queue = coalesce(
     try(var.sqs_autoscaling.scale_in_queue_name, null),
-    try(var.sqs_autoscaling.queue_name, null)
+    try(var.sqs_autoscaling.queue_name, null),
+    ""
   )
 
   # SQS Autoscaling defaults (hardcoded module best practices)
