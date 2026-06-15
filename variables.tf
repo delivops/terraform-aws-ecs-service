@@ -41,9 +41,6 @@ variable "application_load_balancer" {
     target_group_name                = optional(string, "")
     deregister_deregistration_delay  = optional(number, 60)
     route_53_host_zone_id            = optional(string, "")
-    cloudflare_zone_id               = optional(string, "")
-    cloudflare_proxied               = optional(bool, true)
-    cloudflare_ttl                   = optional(number, 300)
   })
   default = {}
 }
@@ -75,9 +72,6 @@ variable "additional_load_balancers" {
     target_group_name                = optional(string, "")
     deregister_deregistration_delay  = optional(number, 60)
     route_53_host_zone_id            = optional(string, "")
-    cloudflare_zone_id               = optional(string, "")
-    cloudflare_proxied               = optional(bool, true)
-    cloudflare_ttl                   = optional(number, 300)
   }))
   default = []
 }
@@ -422,11 +416,4 @@ variable "initial_role" {
   description = "Name of the IAM role to use for both task role and execution role"
   type        = string
   default     = ""
-}
-
-variable "cloudflare_api_token" {
-  description = "Cloudflare API token. Only needed when using cloudflare features"
-  type        = string
-  default     = ""
-  sensitive   = true
 }
