@@ -27,24 +27,21 @@ output "route53_records" {
   }
 }
 
-output "cloudflare_records" {
-  description = "Cloudflare DNS records created"
+output "load_balancer" {
+  description = "DNS details of the ALB(s) fronting the service. Use these (e.g. dns_name) to create DNS records such as Cloudflare CNAMEs outside this module."
   value = {
-    main_record = var.application_load_balancer.enabled && var.application_load_balancer.cloudflare_zone_id != "" && var.application_load_balancer.host != "" ? {
-      name    = cloudflare_record.main_alb_record[0].name
-      value   = cloudflare_record.main_alb_record[0].value
-      zone_id = cloudflare_record.main_alb_record[0].zone_id
-      proxied = cloudflare_record.main_alb_record[0].proxied
-      type    = cloudflare_record.main_alb_record[0].type
+    main = var.application_load_balancer.enabled && var.application_load_balancer.listener_arn != "" ? {
+      dns_name = data.aws_lb.main_alb[0].dns_name
+      zone_id  = data.aws_lb.main_alb[0].zone_id
+      host     = var.application_load_balancer.host
     } : null
-    additional_records = {
-      for idx, record in cloudflare_record.additional_alb_records : idx => {
-        name    = record.name
-        value   = record.value
-        zone_id = record.zone_id
-        proxied = record.proxied
-        type    = record.type
+    additional = {
+      for idx, alb in var.additional_load_balancers : idx => {
+        dns_name = data.aws_lb.additional_albs[idx].dns_name
+        zone_id  = data.aws_lb.additional_albs[idx].zone_id
+        host     = alb.host
       }
+      if alb.enabled && alb.listener_arn != ""
     }
   }
 }
