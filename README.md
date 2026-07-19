@@ -412,6 +412,8 @@ This module is released under the MIT License.
 | [aws_lb_listener_rule.rule_additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_route53_record.additional_alb_records](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
 | [aws_route53_record.main_alb_record](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
+| [aws_ssm_parameter.role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
+| [aws_ssm_parameter.tags](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_ecs_cluster.ecs_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecs_cluster) | data source |
 | [aws_lb.additional_albs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
@@ -468,4 +470,6 @@ This module is released under the MIT License.
 | <a name="output_route53_records"></a> [route53\_records](#output\_route53\_records) | Route53 DNS records created |
 | <a name="output_service_role_arn"></a> [service\_role\_arn](#output\_service\_role\_arn) | ARN of the IAM role created for this service (null if role.create = false). |
 | <a name="output_service_role_name"></a> [service\_role\_name](#output\_service\_role\_name) | Name of the IAM role created for this service (null if role.create = false). |
+| <a name="output_ssm_role_parameter_name"></a> [ssm\_role\_parameter\_name](#output\_ssm\_role\_parameter\_name) | Name of the SSM parameter holding the service role ARN (null when no role exists). |
+| <a name="output_ssm_tags_parameter_name"></a> [ssm\_tags\_parameter\_name](#output\_ssm\_tags\_parameter\_name) | Name of the SSM parameter holding the service tags (JSON). |
 <!-- END_TF_DOCS -->
