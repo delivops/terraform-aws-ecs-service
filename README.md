@@ -190,8 +190,8 @@ pipeline can read it without reconstructing values:
 
 | Parameter | Value | Notes |
 |---|---|---|
-| `/<cluster>/<service>/role` | Effective task/execution role ARN | Not created when no role exists (`role.create = false` and `initial_role` empty). |
-| `/<cluster>/<service>/tags` | Effective tags as JSON (`{ Application } + var.tags`) | Always created. |
+| `/ecs/<cluster>/<service>/role` | Effective task/execution role ARN | Not created when no role exists (`role.create = false` and `initial_role` empty). |
+| `/ecs/<cluster>/<service>/tags` | Effective tags as JSON (`{ Application } + var.tags`) | Always created. |
 
 The parameter names are exposed via the `ssm_role_parameter_name` and
 `ssm_tags_parameter_name` outputs.
