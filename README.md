@@ -183,6 +183,19 @@ The created role's ARN and name are available via the `service_role_arn` and
 `service_role_name` outputs. The legacy `initial_role` input continues to work
 for callers that manage the role themselves.
 
+## SSM Parameters
+
+The module publishes per-service metadata to SSM Parameter Store so a deploy
+pipeline can read it without reconstructing values:
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `/<cluster>/<service>/role` | Effective task/execution role ARN | Not created when no role exists (`role.create = false` and `initial_role` empty). |
+| `/<cluster>/<service>/tags` | Effective tags as JSON (`{ Application } + var.tags`) | Always created. |
+
+The parameter names are exposed via the `ssm_role_parameter_name` and
+`ssm_tags_parameter_name` outputs.
+
 ## DNS Configuration
 
 This module manages **Route53** DNS records natively. Cloudflare (or any other
