@@ -16,8 +16,11 @@ resource "aws_cloudwatch_log_anomaly_detector" "this" {
 }
 
 resource "aws_alb_target_group" "target_group" {
-  count                = var.application_load_balancer.enabled ? 1 : 0
-  name                 = local.main_target_group_name
+  count = var.application_load_balancer.enabled ? 1 : 0
+  # name and name_prefix are mutually exclusive: use the explicit override when
+  # provided, otherwise let AWS auto-generate a unique suffix from the prefix.
+  name                 = var.application_load_balancer.target_group_name != "" ? var.application_load_balancer.target_group_name : null
+  name_prefix          = var.application_load_balancer.target_group_name != "" ? null : local.target_group_name_prefix
   port                 = var.application_load_balancer.container_port
   protocol             = var.application_load_balancer.protocol
   vpc_id               = var.vpc_id
@@ -46,6 +49,12 @@ resource "aws_alb_target_group" "target_group" {
 
   depends_on = [aws_alb_target_group.target_group_additional]
   tags       = local.common_tags
+
+  # name_prefix generates a fresh unique name, so a replacement can create the
+  # new target group before destroying the old one (no name collision).
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_alb_target_group" "target_group_additional" {
@@ -54,7 +63,10 @@ resource "aws_alb_target_group" "target_group_additional" {
     if alb.enabled && try(alb.action_type, "forward") == "forward"
   }
 
-  name                 = local.additional_target_group_names[each.key]
+  # name and name_prefix are mutually exclusive: use the explicit override when
+  # provided, otherwise let AWS auto-generate a unique suffix from the prefix.
+  name                 = each.value.target_group_name != "" ? each.value.target_group_name : null
+  name_prefix          = each.value.target_group_name != "" ? null : local.target_group_name_prefix
   port                 = each.value.container_port
   protocol             = each.value.protocol
   vpc_id               = var.vpc_id
@@ -82,6 +94,12 @@ resource "aws_alb_target_group" "target_group_additional" {
   }
 
   tags = local.common_tags
+
+  # name_prefix generates a fresh unique name, so a replacement can create the
+  # new target group before destroying the old one (no name collision).
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 ########################

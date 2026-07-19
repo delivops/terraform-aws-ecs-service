@@ -19,21 +19,10 @@ locals {
     var.network_mode != "awsvpc" || (length(var.subnet_ids) > 0 && length(var.security_group_ids) > 0)
   ) ? true : tobool("subnet_ids and security_group_ids are required when network_mode is 'awsvpc'")
 
-  # Target group naming logic with 32-char safety
-  main_target_group_name = var.application_load_balancer.target_group_name != "" ? var.application_load_balancer.target_group_name : replace(
-    "${substr(var.ecs_service_name, 0, 20)}-${substr(md5("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}"), 0, 5)}-tg",
-    "_", "-"
-  )
-
-  # Additional target group names with index
-  additional_target_group_names = {
-    for idx, alb in var.additional_load_balancers : idx => (
-      alb.target_group_name != "" ? alb.target_group_name : replace(
-        "${substr(var.ecs_service_name, 0, 18)}-${substr(md5("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}-${idx}"), 0, 5)}-tg-${idx}",
-        "_", "-"
-      )
-    )
-  }
+  # Target group name prefix (max 6 chars for aws_alb_target_group name_prefix).
+  # AWS auto-generates a unique suffix, so an explicit name/index is unnecessary.
+  # An explicit target_group_name still overrides this (see resources.tf).
+  target_group_name_prefix = substr(replace(var.ecs_service_name, "_", "-"), 0, 6)
 
   # SQS Autoscaling queue name resolution
   sqs_out_queue = var.sqs_autoscaling.scale_out_queue_name != null ? var.sqs_autoscaling.scale_out_queue_name : (var.sqs_autoscaling.queue_name != null ? var.sqs_autoscaling.queue_name : "unused")
