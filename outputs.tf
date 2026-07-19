@@ -9,6 +9,16 @@ output "cloudwatch_log_group_name" {
   value = aws_cloudwatch_log_group.ecs_log_group.name
 }
 
+output "service_role_arn" {
+  description = "ARN of the IAM role created for this service (null if role.create = false)."
+  value       = var.role.create ? aws_iam_role.this[0].arn : null
+}
+
+output "service_role_name" {
+  description = "Name of the IAM role created for this service (null if role.create = false)."
+  value       = var.role.create ? aws_iam_role.this[0].name : null
+}
+
 output "route53_records" {
   description = "Route53 DNS records created"
   value = {

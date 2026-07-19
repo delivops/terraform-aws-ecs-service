@@ -139,6 +139,50 @@ resource "cloudflare_record" "api" {
 }
 ```
 
+## Service IAM Role
+
+By default the module creates no IAM. You can either pass an existing role via
+`initial_role`, or let the module create a dedicated role for the service via the
+`role` block. When `role.create = true`, the created role is assumable only by the
+ECS tasks service (`ecs-tasks.amazonaws.com`) and its ARN becomes the default for
+**both** `task_role_arn` and `execution_role_arn` — so `initial_role` is no longer
+needed (if set, it is ignored while `role.create = true`).
+
+```hcl
+module "ecs_service" {
+  source           = "delivops/ecs-service/aws"
+  ecs_cluster_name = "production"
+  ecs_service_name = "worker"
+  # ... networking ...
+
+  role = {
+    create                  = true
+    attach_execution_policy = true # attach AmazonECSTaskExecutionRolePolicy
+    inline_policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Effect   = "Allow"
+        Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage"]
+        Resource = "*"
+      }]
+    })
+    attach_policies = ["arn:aws:iam::aws:policy/AmazonSQSReadOnlyAccess"]
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `create` | `bool` | `false` | Create the role. Off by default. |
+| `name` | `string` | `""` | Role name. Defaults to `"<cluster>_<service>"`. |
+| `inline_policy` | `string` | `""` | Inline IAM policy document (JSON). |
+| `attach_policies` | `list(string)` | `[]` | Managed policy ARNs to attach. |
+| `attach_execution_policy` | `bool` | `false` | Attach `AmazonECSTaskExecutionRolePolicy`. |
+
+The created role's ARN and name are available via the `service_role_arn` and
+`service_role_name` outputs. The legacy `initial_role` input continues to work
+for callers that manage the role themselves.
+
 ## DNS Configuration
 
 This module manages **Route53** DNS records natively. Cloudflare (or any other
