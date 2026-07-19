@@ -5,6 +5,10 @@ locals {
     var.tags
   )
 
+  # Effective task/execution role ARN: the module-created role wins when
+  # role.create = true, otherwise fall back to initial_role (or null).
+  service_role_arn = var.role.create ? aws_iam_role.this[0].arn : (var.initial_role != "" ? var.initial_role : null)
+
   # Validation: Fargate requires awsvpc network mode
   validate_fargate_network_mode = (
     var.ecs_launch_type != "FARGATE" || var.network_mode == "awsvpc"

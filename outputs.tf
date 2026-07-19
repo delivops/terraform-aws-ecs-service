@@ -9,6 +9,26 @@ output "cloudwatch_log_group_name" {
   value = aws_cloudwatch_log_group.ecs_log_group.name
 }
 
+output "service_role_arn" {
+  description = "ARN of the IAM role created for this service (null if role.create = false)."
+  value       = var.role.create ? aws_iam_role.this[0].arn : null
+}
+
+output "service_role_name" {
+  description = "Name of the IAM role created for this service (null if role.create = false)."
+  value       = var.role.create ? aws_iam_role.this[0].name : null
+}
+
+output "ssm_role_parameter_name" {
+  description = "Name of the SSM parameter holding the service role ARN (null when no role exists)."
+  value       = length(aws_ssm_parameter.role) > 0 ? aws_ssm_parameter.role[0].name : null
+}
+
+output "ssm_tags_parameter_name" {
+  description = "Name of the SSM parameter holding the service tags (JSON)."
+  value       = aws_ssm_parameter.tags.name
+}
+
 output "route53_records" {
   description = "Route53 DNS records created"
   value = {

@@ -139,6 +139,63 @@ resource "cloudflare_record" "api" {
 }
 ```
 
+## Service IAM Role
+
+By default the module creates no IAM. You can either pass an existing role via
+`initial_role`, or let the module create a dedicated role for the service via the
+`role` block. When `role.create = true`, the created role is assumable only by the
+ECS tasks service (`ecs-tasks.amazonaws.com`) and its ARN becomes the default for
+**both** `task_role_arn` and `execution_role_arn` — so `initial_role` is no longer
+needed (if set, it is ignored while `role.create = true`).
+
+```hcl
+module "ecs_service" {
+  source           = "delivops/ecs-service/aws"
+  ecs_cluster_name = "production"
+  ecs_service_name = "worker"
+  # ... networking ...
+
+  role = {
+    create                  = true
+    attach_execution_policy = true # attach AmazonECSTaskExecutionRolePolicy
+    inline_policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Effect   = "Allow"
+        Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage"]
+        Resource = "*"
+      }]
+    })
+    attach_policies = ["arn:aws:iam::aws:policy/AmazonSQSReadOnlyAccess"]
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `create` | `bool` | `false` | Create the role. Off by default. |
+| `name` | `string` | `""` | Role name. Defaults to `"<cluster>_<service>"`. |
+| `inline_policy` | `string` | `""` | Inline IAM policy document (JSON). |
+| `attach_policies` | `list(string)` | `[]` | Managed policy ARNs to attach. |
+| `attach_execution_policy` | `bool` | `false` | Attach `AmazonECSTaskExecutionRolePolicy`. |
+
+The created role's ARN and name are available via the `service_role_arn` and
+`service_role_name` outputs. The legacy `initial_role` input continues to work
+for callers that manage the role themselves.
+
+## SSM Parameters
+
+The module publishes per-service metadata to SSM Parameter Store so a deploy
+pipeline can read it without reconstructing values:
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `/ecs/<cluster>/<service>/role` | Effective task/execution role ARN | Not created when no role exists (`role.create = false` and `initial_role` empty). |
+| `/ecs/<cluster>/<service>/tags` | Effective tags as JSON (`{ Application } + var.tags`) | Always created. |
+
+The parameter names are exposed via the `ssm_role_parameter_name` and
+`ssm_tags_parameter_name` outputs.
+
 ## DNS Configuration
 
 This module manages **Route53** DNS records natively. Cloudflare (or any other
@@ -345,12 +402,18 @@ This module is released under the MIT License.
 | [aws_cloudwatch_metric_alarm.sqs_visible_zero](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
 | [aws_ecs_service.ecs_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service) | resource |
 | [aws_ecs_task_definition.task_definition](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
+| [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.inline](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy_attachment.attached](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.execution](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_lb_listener.tcp_listener](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
 | [aws_lb_listener.tcp_listener_additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
 | [aws_lb_listener_rule.rule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_lb_listener_rule.rule_additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_route53_record.additional_alb_records](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
 | [aws_route53_record.main_alb_record](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
+| [aws_ssm_parameter.role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
+| [aws_ssm_parameter.tags](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_ecs_cluster.ecs_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecs_cluster) | data source |
 | [aws_lb.additional_albs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lb) | data source |
@@ -378,13 +441,14 @@ This module is released under the MIT License.
 | <a name="input_ecs_task_cpu"></a> [ecs\_task\_cpu](#input\_ecs\_task\_cpu) | CPU units for the ECS task | `number` | `256` | no |
 | <a name="input_ecs_task_memory"></a> [ecs\_task\_memory](#input\_ecs\_task\_memory) | Memory for the ECS task in MiB | `number` | `512` | no |
 | <a name="input_enable_execute_command"></a> [enable\_execute\_command](#input\_enable\_execute\_command) | Enable execute command | `bool` | `false` | no |
-| <a name="input_initial_role"></a> [initial\_role](#input\_initial\_role) | Name of the IAM role to use for both task role and execution role | `string` | `""` | no |
+| <a name="input_initial_role"></a> [initial\_role](#input\_initial\_role) | ARN (or name) of an existing IAM role to use for both task role and execution role. Ignored when role.create = true, in which case the module-created role is used instead. | `string` | `""` | no |
 | <a name="input_log_anomaly_detection"></a> [log\_anomaly\_detection](#input\_log\_anomaly\_detection) | CloudWatch Logs Anomaly Detection configuration | <pre>object({<br/>    enabled                 = optional(bool, false)<br/>    evaluation_frequency    = optional(string, "TEN_MIN")<br/>    anomaly_visibility_time = optional(number, 7)<br/>    filter_pattern          = optional(string, "")<br/>  })</pre> | `{}` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs | `number` | `7` | no |
 | <a name="input_memory_auto_scaling"></a> [memory\_auto\_scaling](#input\_memory\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    enabled            = optional(bool, false)<br/>    min_replicas       = optional(number, 0)<br/>    max_replicas       = optional(number, 1)<br/>    scale_in_cooldown  = optional(number, 300)<br/>    scale_out_cooldown = optional(number, 300)<br/>    target_value       = optional(number, 70)<br/><br/>  })</pre> | `{}` | no |
 | <a name="input_network_mode"></a> [network\_mode](#input\_network\_mode) | Network mode for the ECS task definition. Fargate requires 'awsvpc'. EC2 supports 'awsvpc', 'bridge', 'host', or 'none'. | `string` | `"awsvpc"` | no |
 | <a name="input_placement_constraints"></a> [placement\_constraints](#input\_placement\_constraints) | Placement constraints for ECS service (only applicable for EC2 launch type). Type can be distinctInstance or memberOf. | <pre>list(object({<br/>    type       = string<br/>    expression = optional(string)<br/>  }))</pre> | `[]` | no |
 | <a name="input_placement_strategy"></a> [placement\_strategy](#input\_placement\_strategy) | Ordered placement strategy for ECS service (only applicable for EC2 launch type). Type can be binpack, spread, or random. | <pre>list(object({<br/>    type  = string<br/>    field = optional(string)<br/>  }))</pre> | `[]` | no |
+| <a name="input_role"></a> [role](#input\_role) | Optionally create a dedicated IAM role for this service, assumable only by the ECS tasks service (ecs-tasks.amazonaws.com). When create = true, the role's ARN becomes the default for both task\_role\_arn and execution\_role\_arn, so initial\_role need not be set. | <pre>object({<br/>    create                  = optional(bool, false)      # Create the role. Default off.<br/>    name                    = optional(string, "")       # Role name. Defaults to "<cluster>_<service>".<br/>    inline_policy           = optional(string, "")       # Inline IAM policy document (JSON, e.g. jsonencode({...})).<br/>    attach_policies         = optional(list(string), []) # Managed policy ARNs to attach.<br/>    attach_execution_policy = optional(bool, false)      # Attach AmazonECSTaskExecutionRolePolicy.<br/>  })</pre> | `{}` | no |
 | <a name="input_schedule_auto_scaling"></a> [schedule\_auto\_scaling](#input\_schedule\_auto\_scaling) | Scheduled auto scaling configuration | <pre>object({<br/>    enabled = optional(bool, false)<br/>    schedules = optional(list(object({<br/>      schedule_name       = optional(string, "")<br/>      min_replicas        = optional(number, 0)<br/>      max_replicas        = optional(number, 1)<br/>      schedule_expression = optional(string, "cron(0 0 1 * ? *)") # cron expression<br/>      time_zone           = optional(string, "Asia/Jerusalem")<br/>    })), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for the ECS tasks. Required when network\_mode is 'awsvpc'. | `list(string)` | `[]` | no |
 | <a name="input_service_connect"></a> [service\_connect](#input\_service\_connect) | n/a | <pre>object({<br/>    enabled     = optional(bool, false)<br/>    type        = optional(string, "client-only")<br/>    port        = optional(number, 80)<br/>    name        = optional(string, "service")<br/>    timeout     = optional(number, 15)<br/>    appProtocol = optional(string, "http")<br/>    additional_ports = optional(list(object({<br/>      name        = string<br/>      port        = number<br/>      appProtocol = optional(string, "http")<br/>    })), [])<br/>  })</pre> | `{}` | no |
@@ -404,4 +468,8 @@ This module is released under the MIT License.
 | <a name="output_log_anomaly_detector_arn"></a> [log\_anomaly\_detector\_arn](#output\_log\_anomaly\_detector\_arn) | ARN of the CloudWatch Logs Anomaly Detector (if enabled) |
 | <a name="output_log_anomaly_detector_name"></a> [log\_anomaly\_detector\_name](#output\_log\_anomaly\_detector\_name) | Name of the CloudWatch Logs Anomaly Detector (if enabled) |
 | <a name="output_route53_records"></a> [route53\_records](#output\_route53\_records) | Route53 DNS records created |
+| <a name="output_service_role_arn"></a> [service\_role\_arn](#output\_service\_role\_arn) | ARN of the IAM role created for this service (null if role.create = false). |
+| <a name="output_service_role_name"></a> [service\_role\_name](#output\_service\_role\_name) | Name of the IAM role created for this service (null if role.create = false). |
+| <a name="output_ssm_role_parameter_name"></a> [ssm\_role\_parameter\_name](#output\_ssm\_role\_parameter\_name) | Name of the SSM parameter holding the service role ARN (null when no role exists). |
+| <a name="output_ssm_tags_parameter_name"></a> [ssm\_tags\_parameter\_name](#output\_ssm\_tags\_parameter\_name) | Name of the SSM parameter holding the service tags (JSON). |
 <!-- END_TF_DOCS -->

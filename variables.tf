@@ -413,7 +413,19 @@ variable "tags" {
 }
 
 variable "initial_role" {
-  description = "Name of the IAM role to use for both task role and execution role"
+  description = "ARN (or name) of an existing IAM role to use for both task role and execution role. Ignored when role.create = true, in which case the module-created role is used instead."
   type        = string
   default     = ""
+}
+
+variable "role" {
+  description = "Optionally create a dedicated IAM role for this service, assumable only by the ECS tasks service (ecs-tasks.amazonaws.com). When create = true, the role's ARN becomes the default for both task_role_arn and execution_role_arn, so initial_role need not be set."
+  type = object({
+    create                  = optional(bool, false)      # Create the role. Default off.
+    name                    = optional(string, "")       # Role name. Defaults to "<cluster>_<service>".
+    inline_policy           = optional(string, "")       # Inline IAM policy document (JSON, e.g. jsonencode({...})).
+    attach_policies         = optional(list(string), []) # Managed policy ARNs to attach.
+    attach_execution_policy = optional(bool, false)      # Attach AmazonECSTaskExecutionRolePolicy.
+  })
+  default = {}
 }
