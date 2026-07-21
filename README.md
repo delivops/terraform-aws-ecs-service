@@ -29,7 +29,7 @@ This Terraform module deploys an ECS service (Fargate or EC2) with support for l
 
 ## Usage
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (without ALB)
@@ -37,7 +37,7 @@ This Terraform module deploys an ECS service (Fargate or EC2) with support for l
 
 module "demo_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 1.0" # pin to a released version; see the repo Releases
 
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "demo"
@@ -48,7 +48,7 @@ module "demo_ecs_service" {
 }
 ```
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (with ALB)
@@ -56,7 +56,7 @@ module "demo_ecs_service" {
 
 module "alb_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 1.0" # pin to a released version; see the repo Releases
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "alb"
   vpc_id             = var.vpc_id
@@ -74,7 +74,7 @@ module "alb_ecs_service" {
 }
 ```
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (with ALB and Route53 DNS)
@@ -82,7 +82,7 @@ module "alb_ecs_service" {
 
 module "alb_ecs_service_with_route53" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 1.0" # pin to a released version; see the repo Releases
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "route53-demo"
   vpc_id             = var.vpc_id
@@ -101,7 +101,7 @@ module "alb_ecs_service_with_route53" {
 }
 ```
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (with ALB, DNS managed in Cloudflare outside the module)
@@ -109,7 +109,7 @@ module "alb_ecs_service_with_route53" {
 
 module "alb_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 1.0" # pin to a released version; see the repo Releases
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "cloudflare-demo"
   vpc_id             = var.vpc_id
@@ -229,10 +229,9 @@ resource "cloudflare_record" "api" {
 
 ## Notes
 
-- The module uses ARM64 architecture by default
-- The task definition is configured with 1024 CPU units and 2048MB memory
-- Default container image is nginx:stable
-- The module ignores changes to task definition and container definitions to support external deployments
+- Task CPU and memory default to 256 units / 512 MiB and are configurable via `ecs_task_cpu` and `ecs_task_memory`
+- The default container image is `nginx:latest` (override with `container_image`)
+- The module ignores changes to the task definition to support external (CI-managed) deployments
 - If you work with load balancer from type NLB, you should create it yourself (not with terraform), and also to put the target_group_protocol and health_check_protocol to "TCP".
 
 ## License

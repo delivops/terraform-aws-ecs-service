@@ -21,7 +21,7 @@ variable "log_kms_key_id" {
 }
 
 variable "application_load_balancer" {
-  description = "alb"
+  description = "Primary load balancer configuration for the service: target group, health checks, listener rule (host/path routing or fixed-response), stickiness, and optional Route53 record. Set enabled = true to attach the service to an existing ALB/NLB listener."
   type = object({
     enabled                          = optional(bool, false)
     container_port                   = optional(number, 80)
@@ -87,6 +87,7 @@ variable "additional_load_balancers" {
 
 
 variable "service_connect" {
+  description = "ECS Service Connect configuration. type = client-only joins the namespace as a client; client-server also advertises this service (default port plus optional additional_ports) for discovery by other services."
   type = object({
     enabled     = optional(bool, false)
     type        = optional(string, "client-only")
@@ -229,7 +230,7 @@ variable "deployment" {
 
 }
 variable "capacity_provider_strategy" {
-  description = "name of the capacity"
+  description = "Name of an existing ECS capacity provider to use for the service. When set, the service uses this capacity provider instead of a plain launch_type (EC2/Fargate). Leave empty to use var.ecs_launch_type directly."
   type        = string
   default     = ""
 }

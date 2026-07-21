@@ -1,12 +1,16 @@
 output "ecs_service_name" {
-  value = aws_ecs_service.ecs_service.name
+  description = "Name of the ECS service. Use this to attach external resources (e.g. autoscaling) to the service."
+  value       = aws_ecs_service.ecs_service.name
 }
+
 output "ecs_task_definition_arn" {
-  value = aws_ecs_task_definition.task_definition.arn
+  description = "ARN of the initial task definition created by the module (the running task definition may be managed by a CI pipeline)."
+  value       = aws_ecs_task_definition.task_definition.arn
 }
 
 output "cloudwatch_log_group_name" {
-  value = aws_cloudwatch_log_group.ecs_log_group.name
+  description = "Name of the CloudWatch log group created for the service."
+  value       = aws_cloudwatch_log_group.ecs_log_group.name
 }
 
 output "service_role_arn" {

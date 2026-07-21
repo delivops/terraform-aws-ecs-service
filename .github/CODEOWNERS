@@ -1,0 +1,7 @@
+# Code owners for automatic review requests.
+# See https://docs.github.com/articles/about-code-owners
+#
+# Replace the team/user below with the actual maintainers for this repository.
+# An owner must be a GitHub user or team the repo can request review from.
+
+* @delivops/maintainers
