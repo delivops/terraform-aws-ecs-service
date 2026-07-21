@@ -254,8 +254,8 @@ resource "aws_ecs_task_definition" "task_definition" {
   requires_compatibilities = [var.ecs_launch_type]
   cpu                      = var.ecs_task_cpu
   memory                   = var.ecs_task_memory
-  task_role_arn            = local.service_role_arn
-  execution_role_arn       = local.service_role_arn
+  task_role_arn            = local.task_role_arn
+  execution_role_arn       = local.execution_role_arn
   container_definitions    = local.container_definitions_json
   tags                     = local.common_tags
 

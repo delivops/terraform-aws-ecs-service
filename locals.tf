@@ -5,9 +5,15 @@ locals {
     var.tags
   )
 
-  # Effective task/execution role ARN: the module-created role wins when
+  # Effective shared role ARN: the module-created role wins when
   # role.create = true, otherwise fall back to initial_role (or null).
   service_role_arn = var.role.create ? aws_iam_role.this[0].arn : (var.initial_role != "" ? var.initial_role : null)
+
+  # Effective task/execution role ARNs. An explicit task_role_arn/execution_role_arn
+  # wins (allowing distinct roles); otherwise both fall back to the shared role,
+  # preserving the previous single-identity behavior.
+  task_role_arn      = var.task_role_arn != "" ? var.task_role_arn : local.service_role_arn
+  execution_role_arn = var.execution_role_arn != "" ? var.execution_role_arn : local.service_role_arn
 
   # Target group naming logic with 32-char safety
   main_target_group_name = var.application_load_balancer.target_group_name != "" ? var.application_load_balancer.target_group_name : replace(
