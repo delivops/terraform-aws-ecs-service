@@ -1,6 +1,7 @@
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
   name              = "/ecs/${data.aws_ecs_cluster.ecs_cluster.cluster_name}/${var.ecs_service_name}"
   retention_in_days = var.log_retention_days
+  kms_key_id        = var.log_kms_key_id != "" ? var.log_kms_key_id : null
   tags              = local.common_tags
 }
 
@@ -719,6 +720,9 @@ module "ecr" {
 
   repository_name                 = var.ecr.repo_name != "" ? var.ecr.repo_name : var.ecs_service_name
   repository_image_tag_mutability = var.ecr.mutability
+  repository_image_scan_on_push   = var.ecr.scan_on_push
+  repository_encryption_type      = var.ecr.kms_key_id != "" ? "KMS" : "AES256"
+  repository_kms_key              = var.ecr.kms_key_id != "" ? var.ecr.kms_key_id : null
   attach_repository_policy        = false
   repository_lifecycle_policy = jsonencode({
     rules = concat(

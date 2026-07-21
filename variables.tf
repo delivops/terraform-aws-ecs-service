@@ -14,6 +14,12 @@ variable "log_retention_days" {
   default     = 7
 }
 
+variable "log_kms_key_id" {
+  description = "ARN of a KMS key to encrypt the CloudWatch log group. Leave empty to use the default AWS-owned key."
+  type        = string
+  default     = ""
+}
+
 variable "application_load_balancer" {
   description = "alb"
   type = object({
@@ -364,7 +370,9 @@ variable "ecr" {
   type = object({
     create_repo         = optional(bool, false)
     repo_name           = optional(string, "")
-    mutability          = optional(string, "MUTABLE")
+    mutability          = optional(string, "IMMUTABLE")
+    scan_on_push        = optional(bool, true)
+    kms_key_id          = optional(string, "") # KMS key ARN for repo encryption. Empty = AES256.
     untagged_ttl_days   = optional(number, 7)
     tagged_ttl_days     = optional(number, 7)
     protected_prefixes  = optional(list(string), ["main", "master"])
@@ -373,6 +381,11 @@ variable "ecr" {
     versioned_retention = optional(number, 30) # How many versioned tags to keep
   })
   default = {}
+
+  validation {
+    condition     = contains(["MUTABLE", "IMMUTABLE"], var.ecr.mutability)
+    error_message = "ecr.mutability must be one of: MUTABLE, IMMUTABLE."
+  }
 }
 
 variable "log_anomaly_detection" {
