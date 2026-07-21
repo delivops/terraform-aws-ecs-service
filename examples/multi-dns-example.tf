@@ -48,58 +48,11 @@ module "ecs_service_for_cloudflare" {
   }
 }
 
-# Cloudflare provider and record live in YOUR configuration, not the module.
-provider "cloudflare" {
-  api_token = var.cloudflare_api_token
-}
-
-resource "cloudflare_record" "api" {
-  zone_id = var.cloudflare_zone_id
-  name    = "api-cf.example.com"
-  content = module.ecs_service_for_cloudflare.load_balancer.main.dns_name
-  type    = "CNAME"
-  proxied = true
-}
-
-# Variables for the examples
-variable "cloudflare_api_token" {
-  description = "Cloudflare API token"
-  type        = string
-  sensitive   = true
-}
-
-variable "cloudflare_zone_id" {
-  description = "Cloudflare zone ID"
-  type        = string
-}
-
-variable "route_53_zone_id" {
-  description = "Route53 hosted zone ID"
-  type        = string
-}
-
-# Common variables (should be defined in examples/variables.tf)
-variable "cluster_name" {
-  description = "ECS cluster name"
-  type        = string
-}
-
-variable "vpc_id" {
-  description = "VPC ID"
-  type        = string
-}
-
-variable "subnet_ids" {
-  description = "Subnet IDs"
-  type        = list(string)
-}
-
-variable "security_group_ids" {
-  description = "Security group IDs"
-  type        = list(string)
-}
-
-variable "listener_arn" {
-  description = "ALB listener ARN"
-  type        = string
-}
+# To front the second service with Cloudflare (or any external DNS), read the
+# module's `load_balancer` output in YOUR own configuration and create the DNS
+# record there — e.g. a cloudflare_record with
+# content = module.ecs_service_for_cloudflare.load_balancer.main.dns_name.
+# The module itself no longer manages Cloudflare.
+#
+# Shared input variables (cluster_name, vpc_id, subnet_ids, security_group_ids,
+# listener_arn, route_53_zone_id) are declared once in examples/variables.tf.
