@@ -24,11 +24,6 @@ output "ssm_role_parameter_name" {
   value       = length(aws_ssm_parameter.role) > 0 ? aws_ssm_parameter.role[0].name : null
 }
 
-output "ssm_tags_parameter_name" {
-  description = "Name of the SSM parameter holding the service tags (JSON)."
-  value       = aws_ssm_parameter.tags.name
-}
-
 output "route53_records" {
   description = "Route53 DNS records created"
   value = {
