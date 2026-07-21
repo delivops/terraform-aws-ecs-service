@@ -434,9 +434,14 @@ variable "tags" {
 }
 
 variable "initial_role" {
-  description = "ARN (or name) of an existing IAM role to use for both task role and execution role. Ignored when role.create = true, in which case the module-created role is used instead."
+  description = "ARN of an existing IAM role to use for both task role and execution role. Must be a full IAM role ARN (task_role_arn/execution_role_arn require ARNs, not names). Ignored when role.create = true, in which case the module-created role is used instead."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.initial_role == "" || startswith(var.initial_role, "arn:")
+    error_message = "initial_role must be a full IAM role ARN (starting with 'arn:'), not a role name."
+  }
 }
 
 variable "role" {

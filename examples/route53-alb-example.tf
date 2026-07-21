@@ -5,7 +5,7 @@ module "ecs_service_with_route53" {
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
-  initial_role       = aws_iam_role.ecs_task_role.name
+  initial_role       = aws_iam_role.ecs_task_role.arn
 
   application_load_balancer = {
     enabled               = true
