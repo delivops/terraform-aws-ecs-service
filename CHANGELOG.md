@@ -24,16 +24,20 @@ the release workflow are [semantic versions](https://semver.org/).
   a validation now rejects role names, which never worked).
 - **Minimum Terraform version is now `>= 1.9`** (required for cross-variable
   input validation).
+- **The `/ecs/<cluster>/<service>/role` SSM parameter and the
+  `ssm_role_parameter_name` output are removed**, replaced by the granular
+  `/task-role` and `/execution-role` parameters (and their outputs). Consumers
+  reading the old `/role` path must switch to `/task-role` / `/execution-role`.
 
 ### Added
 
 - `task_role_arn` / `execution_role_arn` — optionally give the task role and the
   execution role distinct identities (both default to the shared role, so
-  existing behavior is unchanged). Their ARNs are also published to SSM at
+  existing behavior is unchanged). Their ARNs are published to SSM at
   `/ecs/<cluster>/<service>/task-role` and `/execution-role` (new
   `ssm_task_role_parameter_name` / `ssm_execution_role_parameter_name` outputs)
-  so a deploy pipeline can consume distinct roles. The legacy `/role` parameter
-  is retained.
+  so a deploy pipeline can consume them. In the common single-role setup both
+  parameters carry the same ARN.
 - `log_kms_key_id` — optional KMS CMK for the CloudWatch log group.
 - `ecr.scan_on_push` (default `true`) and `ecr.kms_key_id` (optional KMS
   encryption; enabling it replaces the repository).

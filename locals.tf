@@ -15,12 +15,6 @@ locals {
   task_role_arn      = var.task_role_arn != "" ? var.task_role_arn : local.service_role_arn
   execution_role_arn = var.execution_role_arn != "" ? var.execution_role_arn : local.service_role_arn
 
-  # Value for the legacy /role SSM parameter. Falls back to the task or execution
-  # role so the parameter is still published when only those are set.
-  ssm_legacy_role_arn = local.service_role_arn != null ? local.service_role_arn : (
-    local.task_role_arn != null ? local.task_role_arn : local.execution_role_arn
-  )
-
   # Target group naming logic with 32-char safety
   main_target_group_name = var.application_load_balancer.target_group_name != "" ? var.application_load_balancer.target_group_name : replace(
     "${substr(var.ecs_service_name, 0, 20)}-${substr(md5("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}"), 0, 5)}-tg",

@@ -10,18 +10,6 @@
 # propagate_tags = "SERVICE", so tasks inherit the service tags directly and the
 # pipeline does not need to read tags from SSM.
 
-# /ecs/<cluster>/<service>/role — legacy single role ARN (task == execution).
-# Kept for backward compatibility. Falls back to the task or execution role so it
-# is still published when only task_role_arn/execution_role_arn are set.
-resource "aws_ssm_parameter" "role" {
-  count = local.ssm_legacy_role_arn != null ? 1 : 0
-
-  name  = "/ecs/${var.ecs_cluster_name}/${var.ecs_service_name}/role"
-  type  = "String"
-  value = local.ssm_legacy_role_arn
-  tags  = local.common_tags
-}
-
 # /ecs/<cluster>/<service>/task-role — the task role ARN (application permissions).
 resource "aws_ssm_parameter" "task_role" {
   count = local.task_role_arn != null ? 1 : 0
