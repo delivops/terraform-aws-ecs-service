@@ -13,12 +13,10 @@ the release workflow are [semantic versions](https://semver.org/).
   underlying resources (`aws_appautoscaling_target`, `aws_appautoscaling_policy`,
   `aws_appautoscaling_scheduled_action`, and the SQS CloudWatch metric/composite
   alarms) are gone. **On apply, Terraform will destroy any autoscaling
-  resources this module previously created.** Attach your own
-  `aws_appautoscaling_*` resources to the service using the `ecs_service_name`
+  resources this module previously created.** Use
+  [`delivops/terraform-aws-ecs-custom-autoscaler`](https://github.com/delivops/terraform-aws-ecs-custom-autoscaler)
+  (or your own `aws_appautoscaling_*` resources) against the `ecs_service_name`
   output. The `SQS_AUTOSCALING_MIGRATION.md` guide has been removed.
-- **`desired_count` is now authoritative.** It was previously in the service's
-  `ignore_changes` so autoscaling could own the running count; with autoscaling
-  removed, `var.desired_count` now controls the task count.
 - **ECR image tag mutability now defaults to `IMMUTABLE`** (was `MUTABLE`). Set
   `ecr = { mutability = "MUTABLE" }` to keep the previous behavior. ECR
   scan-on-push is now enabled by default.
@@ -31,7 +29,11 @@ the release workflow are [semantic versions](https://semver.org/).
 
 - `task_role_arn` / `execution_role_arn` — optionally give the task role and the
   execution role distinct identities (both default to the shared role, so
-  existing behavior is unchanged).
+  existing behavior is unchanged). Their ARNs are also published to SSM at
+  `/ecs/<cluster>/<service>/task-role` and `/execution-role` (new
+  `ssm_task_role_parameter_name` / `ssm_execution_role_parameter_name` outputs)
+  so a deploy pipeline can consume distinct roles. The legacy `/role` parameter
+  is retained.
 - `log_kms_key_id` — optional KMS CMK for the CloudWatch log group.
 - `ecr.scan_on_push` (default `true`) and `ecr.kms_key_id` (optional KMS
   encryption; enabling it replaces the repository).

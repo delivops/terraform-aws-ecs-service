@@ -170,6 +170,11 @@ variable "gpu_count" {
     condition     = var.gpu_count >= 0
     error_message = "gpu_count must be >= 0."
   }
+
+  validation {
+    condition     = var.gpu_count == 0 || var.ecs_launch_type == "EC2"
+    error_message = "gpu_count > 0 requires ecs_launch_type = \"EC2\" (Fargate does not support GPUs)."
+  }
 }
 
 variable "container_image" {
@@ -179,7 +184,7 @@ variable "container_image" {
 }
 
 variable "desired_count" {
-  description = "Desired number of tasks"
+  description = "Initial desired number of tasks at service creation. The running count is NOT reconciled afterward (desired_count is in the service's ignore_changes) so an external owner — the deploy action or delivops/terraform-aws-ecs-custom-autoscaler — can manage it without Terraform fighting them."
   type        = number
   default     = 1
 }
@@ -328,7 +333,7 @@ variable "initial_role" {
 }
 
 variable "task_role_arn" {
-  description = "ARN of the IAM role for the task (application permissions). Overrides the shared/default role. Leave empty to fall back to the module-created role (role.create) or initial_role."
+  description = "ARN of the IAM role for the task (application permissions). Overrides the shared/default role. Leave empty to fall back to the module-created role (role.create) or initial_role. Also published to SSM at /ecs/<cluster>/<service>/task-role for the deploy pipeline. Note: the delivops/ecs-deploy-action currently applies a single role to both task and execution; distinct roles here apply to the module's initial task definition and any pipeline that reads the task-role/execution-role SSM parameters."
   type        = string
   default     = ""
 
@@ -339,7 +344,7 @@ variable "task_role_arn" {
 }
 
 variable "execution_role_arn" {
-  description = "ARN of the IAM role for the ECS agent (execution role: ECR pull, log write, secret fetch). Overrides the shared/default role. Leave empty to fall back to the module-created role (role.create) or initial_role."
+  description = "ARN of the IAM role for the ECS agent (execution role: ECR pull, log write, secret fetch). Overrides the shared/default role. Leave empty to fall back to the module-created role (role.create) or initial_role. Also published to SSM at /ecs/<cluster>/<service>/execution-role for the deploy pipeline."
   type        = string
   default     = ""
 

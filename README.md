@@ -4,9 +4,12 @@
 
 This Terraform module deploys an ECS service (Fargate or EC2) with support for load balancing and custom deployment configurations.
 
-> **Autoscaling is not managed by this module.** Attach your own
-> `aws_appautoscaling_target`/`aws_appautoscaling_policy` resources to the
-> service using the `ecs_service_name` output.
+> **Autoscaling is not managed by this module.** Use
+> [`delivops/terraform-aws-ecs-custom-autoscaler`](https://github.com/delivops/terraform-aws-ecs-custom-autoscaler)
+> (or your own `aws_appautoscaling_*` resources) against the `ecs_service_name`
+> output. The service's `desired_count` is kept under `ignore_changes`, so the
+> external autoscaler (or the deploy action) owns the running task count without
+> Terraform reverting it — `var.desired_count` only seeds the initial count.
 
 ## Features
 
@@ -188,9 +191,14 @@ pipeline can read it without reconstructing values:
 
 | Parameter | Value | Notes |
 |---|---|---|
-| `/ecs/<cluster>/<service>/role` | Effective task/execution role ARN | Not created when no role exists (`role.create = false` and `initial_role` empty). |
+| `/ecs/<cluster>/<service>/role` | Legacy single role ARN | Backward-compatible; falls back to the task or execution role. Not created when no role exists. |
+| `/ecs/<cluster>/<service>/task-role` | Task role ARN (application permissions) | Not created when no task role exists. |
+| `/ecs/<cluster>/<service>/execution-role` | Execution role ARN (ECR pull, log write, secret fetch) | Not created when no execution role exists. |
 
-The parameter name is exposed via the `ssm_role_parameter_name` output.
+The parameter names are exposed via the `ssm_role_parameter_name`,
+`ssm_task_role_parameter_name` and `ssm_execution_role_parameter_name` outputs.
+Use the `task-role` / `execution-role` parameters when task and execution roles
+differ.
 
 Tags are **not** published to SSM. Tasks are tagged by tagging the ECS service
 (`{ Application } + var.tags`) together with `propagate_tags = "SERVICE"`, so

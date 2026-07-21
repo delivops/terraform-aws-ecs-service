@@ -394,7 +394,7 @@ resource "aws_ecs_service" "ecs_service" {
   tags = local.common_tags
 
   lifecycle {
-    ignore_changes = [task_definition, platform_version, service_connect_configuration.0.namespace]
+    ignore_changes = [task_definition, platform_version, desired_count, service_connect_configuration.0.namespace]
   }
 
   depends_on = [
