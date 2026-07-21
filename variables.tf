@@ -154,6 +154,17 @@ variable "container_name" {
   default     = "app"
 }
 
+variable "gpu_count" {
+  description = "Number of GPUs to request for the container (EC2 launch type only). 0 disables GPU resource requirements."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.gpu_count >= 0
+    error_message = "gpu_count must be >= 0."
+  }
+}
+
 variable "container_image" {
   description = "Docker image for the container"
   type        = string
