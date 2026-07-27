@@ -53,6 +53,15 @@ the release workflow are [semantic versions](https://semver.org/).
 
 ### Fixed
 
+- **First apply with `role.create = true` no longer fails.** The SSM role
+  parameters derived their `count` from the resolved role ARN
+  (`local.service_role_arn != null`). With `role.create = true` and the role not
+  yet in state, `aws_iam_role.this[0].arn` is unknown at plan time, so the count
+  was unknown and Terraform refused to plan — meaning a brand-new service using
+  `role.create` could never reach its first successful apply. The count is now
+  derived from configuration (`var.role.create || var.initial_role != ""`, plus
+  the explicit `task_role_arn`/`execution_role_arn` overrides). Present in
+  v1.1.1 and earlier.
 - `launch_type` now honors `ecs_launch_type` (EC2 launches were previously forced
   to `FARGATE` when no capacity provider strategy was set).
 - The dead `tobool(...)` network-mode validation locals were replaced with real

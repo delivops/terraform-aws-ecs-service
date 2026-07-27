@@ -15,6 +15,20 @@ locals {
   task_role_arn      = var.task_role_arn != "" ? var.task_role_arn : local.service_role_arn
   execution_role_arn = var.execution_role_arn != "" ? var.execution_role_arn : local.service_role_arn
 
+  # Whether a role ARN will exist, derived from *configuration* only.
+  #
+  # These mirror the conditions above but must never reference the ARNs
+  # themselves: when role.create = true and the role is not yet in state,
+  # aws_iam_role.this[0].arn is unknown at plan time, so `arn != null` is also
+  # unknown. Using that as a `count` makes the count unknown and Terraform
+  # refuses to plan ("the count value depends on resource attributes that
+  # cannot be determined until apply"), which breaks the very first apply of a
+  # service using role.create. Anything consuming these as a count/for_each
+  # must use the booleans below, not the ARNs.
+  has_shared_role    = var.role.create || var.initial_role != ""
+  has_task_role      = var.task_role_arn != "" || local.has_shared_role
+  has_execution_role = var.execution_role_arn != "" || local.has_shared_role
+
   # Target group naming logic with 32-char safety
   main_target_group_name = var.application_load_balancer.target_group_name != "" ? var.application_load_balancer.target_group_name : replace(
     "${substr(var.ecs_service_name, 0, 20)}-${substr(md5("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}"), 0, 5)}-tg",

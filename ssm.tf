@@ -12,7 +12,8 @@
 
 # /ecs/<cluster>/<service>/task-role — the task role ARN (application permissions).
 resource "aws_ssm_parameter" "task_role" {
-  count = local.task_role_arn != null ? 1 : 0
+  # Config-derived, never `local.task_role_arn != null` — see locals.tf.
+  count = local.has_task_role ? 1 : 0
 
   name  = "/ecs/${var.ecs_cluster_name}/${var.ecs_service_name}/task-role"
   type  = "String"
@@ -24,7 +25,8 @@ resource "aws_ssm_parameter" "task_role" {
 # log write, secret fetch). A deploy pipeline can read this to register the real
 # task definition with distinct task and execution roles.
 resource "aws_ssm_parameter" "execution_role" {
-  count = local.execution_role_arn != null ? 1 : 0
+  # Config-derived, never `local.execution_role_arn != null` — see locals.tf.
+  count = local.has_execution_role ? 1 : 0
 
   name  = "/ecs/${var.ecs_cluster_name}/${var.ecs_service_name}/execution-role"
   type  = "String"
