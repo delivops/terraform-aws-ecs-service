@@ -9,6 +9,12 @@ locals {
   # role.create = true, otherwise fall back to initial_role (or null).
   service_role_arn = var.role.create ? aws_iam_role.this[0].arn : (var.initial_role != "" ? var.initial_role : null)
 
+  # Derived from configuration rather than from service_role_arn, because
+  # aws_iam_role.this[0].arn is unknown at plan time until the role exists, and
+  # a count derived from an unknown value fails the plan. Anything using this as
+  # a count or for_each must not switch to testing the ARN.
+  has_service_role = var.role.create || var.initial_role != ""
+
   # Validation: Fargate requires awsvpc network mode
   validate_fargate_network_mode = (
     var.ecs_launch_type != "FARGATE" || var.network_mode == "awsvpc"
