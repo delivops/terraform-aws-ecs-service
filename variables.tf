@@ -193,6 +193,16 @@ variable "network_mode" {
     condition     = contains(["awsvpc", "bridge", "host", "none"], var.network_mode)
     error_message = "Valid values for network_mode are: awsvpc, bridge, host, none."
   }
+
+  validation {
+    condition     = var.ecs_launch_type != "FARGATE" || var.network_mode == "awsvpc"
+    error_message = "Fargate requires network_mode = \"awsvpc\"."
+  }
+
+  validation {
+    condition     = var.network_mode != "awsvpc" || (length(var.subnet_ids) > 0 && length(var.security_group_ids) > 0)
+    error_message = "network_mode = \"awsvpc\" requires subnet_ids and security_group_ids."
+  }
 }
 variable "deployment" {
   description = "Deployment configuration for the ECS service"

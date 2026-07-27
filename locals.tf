@@ -23,16 +23,6 @@ locals {
   has_task_role      = var.task_role_arn != "" || local.has_service_role
   has_execution_role = var.execution_role_arn != "" || local.has_service_role
 
-  # Validation: Fargate requires awsvpc network mode
-  validate_fargate_network_mode = (
-    var.ecs_launch_type != "FARGATE" || var.network_mode == "awsvpc"
-  ) ? true : tobool("Fargate launch type requires network_mode = 'awsvpc'")
-
-  # Validation: awsvpc network mode requires subnet_ids and security_group_ids
-  validate_awsvpc_network_config = (
-    var.network_mode != "awsvpc" || (length(var.subnet_ids) > 0 && length(var.security_group_ids) > 0)
-  ) ? true : tobool("subnet_ids and security_group_ids are required when network_mode is 'awsvpc'")
-
   # awsvpc tasks get their own ENI and register with the target group by IP;
   # bridge and host tasks share the instance network stack and register by
   # instance id.

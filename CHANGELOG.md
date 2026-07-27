@@ -10,6 +10,23 @@ the squash commit; without one the release workflow defaults to a patch bump.
 
 ## [Unreleased]
 
+### Changed
+
+- **Minimum Terraform is now `>= 1.9`**, declared in `versions.tf`. Required for
+  validation rules that reference other input variables.
+- **The network-mode validations are now enforced.** They existed as
+  `tobool(...)` expressions in unreferenced locals, so Terraform never evaluated
+  them and they never rejected anything. They are now real `validation` blocks
+  on `network_mode`:
+
+  - Fargate requires `network_mode = "awsvpc"`.
+  - `network_mode = "awsvpc"` requires non-empty `subnet_ids` and
+    `security_group_ids`.
+
+  A configuration violating either used to plan and apply; it now fails at plan.
+  Both describe configurations AWS rejects anyway, but the failure moves earlier
+  and is visible to anyone who had one latent.
+
 ### Removed
 
 - **Built-in autoscaling.** The `cpu_auto_scaling`, `memory_auto_scaling`,
