@@ -42,7 +42,7 @@ actual change — update them in the pipeline that registers the task definition
 | `ecs_task_cpu`, `ecs_task_memory` | CI task definition |
 | `container_name`, `container_image` | CI task definition |
 | `network_mode` | CI task definition (also selects target group `target_type`) |
-| `task_role_arn`, `execution_role_arn` | CI, via the SSM parameters below |
+| `task_role`, `execution_role` | CI, via the SSM parameters below |
 
 Inputs on the *service* — load balancer wiring, Service Connect, placement,
 deployment settings — reconcile normally. The exception is `desired_count`,
@@ -58,7 +58,7 @@ which is also ignored so an external autoscaler can own the running count.
 
 module "demo_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "~> 2.1"
+  version = "~> 3.0"
 
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "demo"
@@ -77,7 +77,7 @@ module "demo_ecs_service" {
 
 module "alb_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "~> 2.1"
+  version = "~> 3.0"
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "alb"
   vpc_id             = var.vpc_id
@@ -103,7 +103,7 @@ module "alb_ecs_service" {
 
 module "alb_ecs_service_with_route53" {
   source  = "delivops/ecs-service/aws"
-  version = "~> 2.1"
+  version = "~> 3.0"
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "route53-demo"
   vpc_id             = var.vpc_id
@@ -130,7 +130,7 @@ module "alb_ecs_service_with_route53" {
 
 module "alb_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "~> 2.1"
+  version = "~> 3.0"
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "cloudflare-demo"
   vpc_id             = var.vpc_id
@@ -266,11 +266,11 @@ only seeds the count at service creation.
 
 ## Notes
 
-- The module uses ARM64 architecture by default
-- The task definition is configured with 1024 CPU units and 2048MB memory
-- Default container image is nginx:stable
-- The module ignores changes to task definition and container definitions to support external deployments
-- If you work with load balancer from type NLB, you should create it yourself (not with terraform), and also to put the target_group_protocol and health_check_protocol to "TCP".
+- Task CPU and memory default to 256 units / 512 MiB, configurable via `ecs_task_cpu` and `ecs_task_memory`
+- The default container image is `nginx:latest`, overridable via `container_image`
+- The module sets no `runtime_platform`, so the task definition uses the ECS default (Linux/X86_64). Set the architecture in the CI-managed task definition if you need ARM64.
+- The module ignores changes to the task definition to support external (CI-managed) deployments
+- An NLB must be created outside this module. Pass its ARN as `nlb_arn`, set `protocol = "TCP"` and `health_check_protocol = "TCP"`; the module creates the listener and can still manage the Route53 alias record for it.
 
 ## License
 
