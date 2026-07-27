@@ -2,7 +2,7 @@
 # SSM Parameters
 #########################
 # Publish per-service metadata to SSM Parameter Store at predictable paths so the
-# deploy pipeline can read them (e.g. to attach the role to the real, CI-managed
+# deploy pipeline can read them (e.g. to attach the roles to the real, CI-managed
 # task definition).
 #
 # Note: tags are intentionally NOT published here. Task tagging is handled by
@@ -10,21 +10,8 @@
 # propagate_tags = "SERVICE", so tasks inherit the service tags directly and the
 # pipeline does not need to read tags from SSM.
 
-# /ecs/<cluster>/<service>/role — the task/execution role ARN.
-# Skipped when no role is available (role.create = false AND initial_role = "").
-resource "aws_ssm_parameter" "role" {
-  count = local.has_service_role ? 1 : 0
-
-  name  = "/ecs/${var.ecs_cluster_name}/${var.ecs_service_name}/role"
-  type  = "String"
-  value = local.service_role_arn
-  tags  = local.common_tags
-}
-
-# /ecs/<cluster>/<service>/task-role and /execution-role — the task and
-# execution role ARNs published separately, so a pipeline can register a task
-# definition with distinct identities. In the common single-role setup both
-# carry the same ARN as /role.
+# /ecs/<cluster>/<service>/task-role — the role the container assumes.
+# Skipped when no task role is available.
 resource "aws_ssm_parameter" "task_role" {
   count = local.has_task_role ? 1 : 0
 
@@ -34,6 +21,8 @@ resource "aws_ssm_parameter" "task_role" {
   tags  = local.common_tags
 }
 
+# /ecs/<cluster>/<service>/execution-role — the role the ECS agent assumes to
+# start the task (ECR pull, log write, secret fetch).
 resource "aws_ssm_parameter" "execution_role" {
   count = local.has_execution_role ? 1 : 0
 

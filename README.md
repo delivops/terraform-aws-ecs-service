@@ -190,9 +190,12 @@ pipeline can read it without reconstructing values:
 
 | Parameter | Value | Notes |
 |---|---|---|
-| `/ecs/<cluster>/<service>/role` | Effective task/execution role ARN | Not created when no role exists (`role.create = false` and `initial_role` empty). |
+| `/ecs/<cluster>/<service>/task-role` | Task role ARN (application permissions) | Not created when no task role exists. |
+| `/ecs/<cluster>/<service>/execution-role` | Execution role ARN (ECR pull, log write, secret fetch) | Not created when no execution role exists. |
 
-The parameter name is exposed via the `ssm_role_parameter_name` output.
+The parameter names are exposed via the `ssm_task_role_parameter_name` and
+`ssm_execution_role_parameter_name` outputs. When a single shared role is used
+both parameters carry the same ARN.
 
 Tags are **not** published to SSM. Tasks are tagged by tagging the ECS service
 (`{ Application } + var.tags`) together with `propagate_tags = "SERVICE"`, so
@@ -416,7 +419,6 @@ This module is released under the MIT License.
 | [aws_route53_record.additional_alb_records](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
 | [aws_route53_record.main_alb_record](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
 | [aws_ssm_parameter.execution_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
-| [aws_ssm_parameter.role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
 | [aws_ssm_parameter.task_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_ecs_cluster.ecs_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecs_cluster) | data source |
@@ -477,6 +479,5 @@ This module is released under the MIT License.
 | <a name="output_service_role_arn"></a> [service\_role\_arn](#output\_service\_role\_arn) | ARN of the IAM role created for this service (null if role.create = false). |
 | <a name="output_service_role_name"></a> [service\_role\_name](#output\_service\_role\_name) | Name of the IAM role created for this service (null if role.create = false). |
 | <a name="output_ssm_execution_role_parameter_name"></a> [ssm\_execution\_role\_parameter\_name](#output\_ssm\_execution\_role\_parameter\_name) | Name of the SSM parameter holding the execution role ARN (null when no execution role exists). |
-| <a name="output_ssm_role_parameter_name"></a> [ssm\_role\_parameter\_name](#output\_ssm\_role\_parameter\_name) | Name of the SSM parameter holding the service role ARN (null when no role exists). |
 | <a name="output_ssm_task_role_parameter_name"></a> [ssm\_task\_role\_parameter\_name](#output\_ssm\_task\_role\_parameter\_name) | Name of the SSM parameter holding the task role ARN (null when no task role exists). |
 <!-- END_TF_DOCS -->
