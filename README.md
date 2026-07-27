@@ -40,7 +40,7 @@ This Terraform module deploys an ECS service (Fargate or EC2) with support for l
 
 module "demo_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "~> 1.0" # pin to a released version; see the repo Releases
+  version = "~> 2.0" # pin to a released version; see the repo Releases
 
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "demo"
@@ -59,7 +59,7 @@ module "demo_ecs_service" {
 
 module "alb_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "~> 1.0" # pin to a released version; see the repo Releases
+  version = "~> 2.0" # pin to a released version; see the repo Releases
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "alb"
   vpc_id             = var.vpc_id
@@ -85,7 +85,7 @@ module "alb_ecs_service" {
 
 module "alb_ecs_service_with_route53" {
   source  = "delivops/ecs-service/aws"
-  version = "~> 1.0" # pin to a released version; see the repo Releases
+  version = "~> 2.0" # pin to a released version; see the repo Releases
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "route53-demo"
   vpc_id             = var.vpc_id
@@ -112,7 +112,7 @@ module "alb_ecs_service_with_route53" {
 
 module "alb_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "~> 1.0" # pin to a released version; see the repo Releases
+  version = "~> 2.0" # pin to a released version; see the repo Releases
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "cloudflare-demo"
   vpc_id             = var.vpc_id

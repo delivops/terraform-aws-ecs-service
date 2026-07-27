@@ -417,7 +417,7 @@ module "ecr" {
   repository_name                 = var.ecr.repo_name != "" ? var.ecr.repo_name : var.ecs_service_name
   repository_image_tag_mutability = var.ecr.mutability
   repository_image_scan_on_push   = var.ecr.scan_on_push
-  repository_encryption_type      = var.ecr.kms_key_id != "" ? "KMS" : "AES256"
+  repository_encryption_type      = var.ecr.kms_key_id != "" ? "KMS" : null
   repository_kms_key              = var.ecr.kms_key_id != "" ? var.ecr.kms_key_id : null
   attach_repository_policy        = false
   repository_lifecycle_policy = jsonencode({

@@ -162,7 +162,7 @@ variable "container_name" {
 }
 
 variable "gpu_count" {
-  description = "Number of GPUs to request for the container (EC2 launch type only). 0 disables GPU resource requirements."
+  description = "Number of GPUs to request for the container (EC2 launch type only). 0 disables GPU resource requirements. Applies only to the module's INITIAL task-definition revision (the task definition has ignore_changes = all); the CI-managed task definition must set resourceRequirements itself for an existing service."
   type        = number
   default     = 0
 

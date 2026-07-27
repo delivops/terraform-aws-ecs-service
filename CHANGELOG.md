@@ -17,9 +17,16 @@ the release workflow are [semantic versions](https://semver.org/).
   [`delivops/terraform-aws-ecs-custom-autoscaler`](https://github.com/delivops/terraform-aws-ecs-custom-autoscaler)
   (or your own `aws_appautoscaling_*` resources) against the `ecs_service_name`
   output. The `SQS_AUTOSCALING_MIGRATION.md` guide has been removed.
-- **ECR image tag mutability now defaults to `IMMUTABLE`** (was `MUTABLE`). Set
-  `ecr = { mutability = "MUTABLE" }` to keep the previous behavior. ECR
+- **ECR image tag mutability now defaults to `IMMUTABLE`** (was `MUTABLE`). The
+  attribute change itself is in-place, but afterward a `docker push` that
+  overwrites an existing tag (e.g. a moving branch tag such as `main`) will fail.
+  Set `ecr = { mutability = "MUTABLE" }` to keep the previous behavior. ECR
   scan-on-push is now enabled by default.
+- **Network-mode validations are now enforced.** They were dead code before
+  (`tobool(...)` in an unreferenced local), so a config with
+  `network_mode = "awsvpc"` and empty `subnet_ids`/`security_group_ids` used to
+  apply and now hard-fails at plan (Fargate also requires `awsvpc`). Correct, but
+  a previously-"passing" invalid config will now error.
 - **`initial_role` must be a full IAM role ARN** (it was already used as an ARN;
   a validation now rejects role names, which never worked).
 - **Minimum Terraform version is now `>= 1.9`** (required for cross-variable
@@ -48,8 +55,8 @@ the release workflow are [semantic versions](https://semver.org/).
 
 - `launch_type` now honors `ecs_launch_type` (EC2 launches were previously forced
   to `FARGATE` when no capacity provider strategy was set).
-- Network-mode validations (Fargate requires `awsvpc`; `awsvpc` requires subnets
-  and security groups) are now actually enforced — they were dead code before.
+- The dead `tobool(...)` network-mode validation locals were replaced with real
+  validation blocks (see Breaking changes for the behavior impact).
 - Container definitions are now built with `jsonencode`, so special characters in
   `container_name`/`container_image` are escaped correctly.
 - Examples now pass `terraform validate` (removed duplicate variable declarations

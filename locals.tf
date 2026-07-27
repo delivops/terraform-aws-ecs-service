@@ -42,7 +42,7 @@ locals {
   # Effective container port, and whether to advertise appProtocol = http.
   # (Service Connect with appProtocol = "tcp" omits appProtocol from the mapping.)
   container_port     = local.use_alb ? local.alb_port : (local.use_service_connect ? local.sc_port : 0)
-  include_http_proto = local.use_alb || (local.use_service_connect && lookup(var.service_connect, "appProtocol", "http") == "http")
+  include_http_proto = local.use_alb || (local.use_service_connect && var.service_connect.appProtocol == "http")
 
   # Port mappings for the container definition
   port_mappings = (local.use_alb || local.use_service_connect) ? [
@@ -65,6 +65,11 @@ locals {
   # Build the complete container definition and encode it as JSON.
   # jsonencode() is used (instead of hand-built strings) so special characters
   # in container_name/container_image are escaped correctly.
+  #
+  # NOTE: this is only the INITIAL task-definition revision. aws_ecs_task_definition
+  # has lifecycle { ignore_changes = all }, so the CI deploy pipeline owns the real
+  # revision — including logConfiguration, secrets, environment, and (for GPUs)
+  # resourceRequirements. Changing gpu_count here affects only the initial revision.
   container_definitions = [
     merge(
       {
