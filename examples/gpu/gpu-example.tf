@@ -160,7 +160,6 @@ module "gpu_ecs_service" {
   subnet_ids                 = var.subnet_ids
   security_group_ids         = var.security_group_ids
   ecs_launch_type            = "EC2"
-  gpu_count                  = 1
   capacity_provider_strategy = aws_ecs_capacity_provider.ecs_capacity_provider.name
 }
 
