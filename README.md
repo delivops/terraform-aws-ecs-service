@@ -2,36 +2,60 @@
 
 # AWS ECS Service Terraform Module
 
-This Terraform module deploys an ECS service on AWS Fargate with support for load balancing, auto-scaling, and custom deployment configurations.
+This Terraform module deploys an ECS service on Fargate or EC2, with support for load balancing, auto-scaling, and custom deployment configurations.
 
 ## Features
 
-- Creates an ECS service with Fargate launch type
+- Creates an ECS service with the Fargate or EC2 launch type
 - Configurable load balancer target group with health checks
 - Support for host-based and path-based routing rules
 - Auto-scaling capabilities:
   - CPU and Memory utilization-based scaling
   - **Advanced SQS-based autoscaling with latency-first approach**
   - Scheduled scaling
-- CloudWatch logging integration
+- CloudWatch logging integration, with optional KMS encryption
+- Separate task and execution roles, published to SSM for a deploy pipeline
 - Deployment circuit breaker and CloudWatch alarms integration
 - Route53 DNS record management (other providers, e.g. Cloudflare, can be wired via the `load_balancer` output)
-- ARM64 architecture support
 
 ## Resources Created
 
-- ECS Service with Fargate launch type
-- ECS Task Definition
+- ECS Service (Fargate or EC2)
+- ECS Task Definition (initial revision only — see below)
 - Application/Network Load Balancer Target Group (optional)
 - Load Balancer Listener Rules (host-based and path-based)
 - CloudWatch Log Group
 - Auto Scaling Target and Policies
 - CloudWatch Alarms (optional)
+- ECR Repository (optional)
+- IAM role (optional)
 - Route53 DNS Records (optional)
+
+## The initial task definition is write-once
+
+The module registers a task definition to bootstrap the service, then steps out
+of the way: `aws_ecs_task_definition` carries `lifecycle { ignore_changes = all }`
+and the service ignores `task_definition` changes, so the running revision is
+owned by your deploy pipeline.
+
+The practical consequence is that these inputs only affect the **first**
+revision. On an existing service, changing them produces a clean plan and no
+actual change — update them in the pipeline that registers the task definition:
+
+| Input | Owned afterwards by |
+|---|---|
+| `ecs_task_cpu`, `ecs_task_memory` | CI task definition |
+| `container_name`, `container_image` | CI task definition |
+| `network_mode` | CI task definition (also selects target group `target_type`) |
+| `task_role_arn`, `execution_role_arn` | CI, via the SSM parameters below |
+
+Inputs on the *service* — load balancer wiring, Service Connect, placement,
+deployment settings — reconcile normally. The exception is `desired_count`,
+which is also ignored so an external autoscaler can own the running count.
 
 ## Usage
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (without ALB)
@@ -39,7 +63,7 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 
 module "demo_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 2.1"
 
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "demo"
@@ -50,7 +74,7 @@ module "demo_ecs_service" {
 }
 ```
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (with ALB)
@@ -58,7 +82,7 @@ module "demo_ecs_service" {
 
 module "alb_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 2.1"
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "alb"
   vpc_id             = var.vpc_id
@@ -76,7 +100,7 @@ module "alb_ecs_service" {
 }
 ```
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (with ALB and Route53 DNS)
@@ -84,7 +108,7 @@ module "alb_ecs_service" {
 
 module "alb_ecs_service_with_route53" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 2.1"
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "route53-demo"
   vpc_id             = var.vpc_id
@@ -103,7 +127,7 @@ module "alb_ecs_service_with_route53" {
 }
 ```
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (with ALB, DNS managed in Cloudflare outside the module)
@@ -111,7 +135,7 @@ module "alb_ecs_service_with_route53" {
 
 module "alb_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 2.1"
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "cloudflare-demo"
   vpc_id             = var.vpc_id
@@ -251,7 +275,7 @@ Minimal configuration with opinionated defaults:
 ```hcl
 module "queue_processor" {
   source = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 2.1"
 
   ecs_cluster_name   = "my-cluster"
   ecs_service_name   = "image-processor"

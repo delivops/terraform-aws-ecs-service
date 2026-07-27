@@ -21,7 +21,7 @@ variable "log_kms_key_id" {
 }
 
 variable "application_load_balancer" {
-  description = "alb"
+  description = "Primary load balancer for the service: target group, health checks, listener rule (host/path routing or fixed-response), stickiness, and an optional Route53 alias record. Set enabled = true to attach the service to an existing ALB listener, or protocol = \"TCP\" with nlb_arn to have the module create an NLB listener."
   type = object({
     enabled                          = optional(bool, false)
     container_port                   = optional(number, 80)
@@ -87,6 +87,7 @@ variable "additional_load_balancers" {
 
 
 variable "service_connect" {
+  description = "ECS Service Connect configuration. type = client-only joins the namespace as a client; client-server also advertises this service (default port plus optional additional_ports) for discovery by other services. The namespace is assumed to share the cluster name."
   type = object({
     enabled     = optional(bool, false)
     type        = optional(string, "client-only")
@@ -167,7 +168,7 @@ variable "container_image" {
 }
 
 variable "desired_count" {
-  description = "Desired number of tasks"
+  description = "Number of tasks at service creation. Not reconciled afterwards — desired_count is in the service's ignore_changes, so an autoscaler or deploy pipeline can own the running count without Terraform reverting it."
   type        = number
   default     = 1
 }
@@ -208,7 +209,7 @@ variable "deployment" {
 
 }
 variable "capacity_provider_strategy" {
-  description = "name of the capacity"
+  description = "Name of an existing ECS capacity provider for the service. When set, the service uses it instead of a plain launch_type. Leave empty to use ecs_launch_type directly."
   type        = string
   default     = ""
 }
