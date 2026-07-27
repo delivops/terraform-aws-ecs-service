@@ -305,42 +305,47 @@ variable "tags" {
   default     = {}
 }
 
-variable "initial_role" {
-  description = "ARN (or name) of an existing IAM role to use for both task role and execution role. Ignored when role.create = true, in which case the module-created role is used instead."
-  type        = string
-  default     = ""
-}
-
-variable "task_role_arn" {
-  description = "ARN of the IAM role the container assumes (application permissions). Overrides the shared role from role.create/initial_role. Also published to SSM at /ecs/<cluster>/<service>/task-role."
-  type        = string
-  default     = ""
-
-  validation {
-    condition     = var.task_role_arn == "" || startswith(var.task_role_arn, "arn:")
-    error_message = "task_role_arn must be a full IAM role ARN, not a role name."
-  }
-}
-
-variable "execution_role_arn" {
-  description = "ARN of the IAM role the ECS agent assumes to start the task (ECR pull, log write, secret fetch). Overrides the shared role from role.create/initial_role. Also published to SSM at /ecs/<cluster>/<service>/execution-role."
-  type        = string
-  default     = ""
-
-  validation {
-    condition     = var.execution_role_arn == "" || startswith(var.execution_role_arn, "arn:")
-    error_message = "execution_role_arn must be a full IAM role ARN, not a role name."
-  }
-}
-
-variable "role" {
-  description = "Optionally create a dedicated IAM role for this service, assumable only by the ECS tasks service (ecs-tasks.amazonaws.com). When create = true, the role's ARN becomes the default for both task_role_arn and execution_role_arn, so initial_role need not be set."
+variable "task_role" {
+  description = "IAM role the container assumes — the application's own permissions. Either create it here (create = true, with inline_policy and attach_policies) or supply an existing one (arn). It starts with no permissions: only the application knows what it needs."
   type = object({
-    create                  = optional(bool, false)      # Create the role. Default off.
-    name                    = optional(string, "")       # Role name. Defaults to "<cluster>_<service>".
-    inline_policy           = optional(string, "")       # Inline IAM policy document (JSON, e.g. jsonencode({...})).
-    attach_policies         = optional(list(string), []) # Managed policy ARNs to attach.
-    attach_execution_policy = optional(bool, false)      # Attach AmazonECSTaskExecutionRolePolicy.
+    create          = optional(bool, false)
+    arn             = optional(string, "")
+    name            = optional(string, "")
+    inline_policy   = optional(string, "")
+    attach_policies = optional(list(string), [])
   })
   default = {}
+
+  validation {
+    condition     = !(var.task_role.create && var.task_role.arn != "")
+    error_message = "task_role.create and task_role.arn are mutually exclusive: either the module creates the role or you supply one."
+  }
+
+  validation {
+    condition     = var.task_role.arn == "" || startswith(var.task_role.arn, "arn:")
+    error_message = "task_role.arn must be a full IAM role ARN, not a role name."
+  }
+}
+
+variable "execution_role" {
+  description = "IAM role the ECS agent assumes to start the task — ECR pull, log write, secret fetch. Either create it here (create = true) or supply an existing one (arn); a single execution role shared across services is a common pattern. When created, AmazonECSTaskExecutionRolePolicy is attached by default, since that policy is the same for every service. It does not cover secrets: add ssm:GetParameters or secretsmanager:GetSecretValue via inline_policy if the task definition references any."
+  type = object({
+    create                  = optional(bool, false)
+    arn                     = optional(string, "")
+    name                    = optional(string, "")
+    inline_policy           = optional(string, "")
+    attach_policies         = optional(list(string), [])
+    attach_execution_policy = optional(bool, true)
+  })
+  default = {}
+
+  validation {
+    condition     = !(var.execution_role.create && var.execution_role.arn != "")
+    error_message = "execution_role.create and execution_role.arn are mutually exclusive: either the module creates the role or you supply one."
+  }
+
+  validation {
+    condition     = var.execution_role.arn == "" || startswith(var.execution_role.arn, "arn:")
+    error_message = "execution_role.arn must be a full IAM role ARN, not a role name."
+  }
 }

@@ -12,6 +12,48 @@ the squash commit; without one the release workflow defaults to a patch bump.
 
 ### Changed
 
+- **The IAM role interface is now two symmetric objects, `task_role` and
+  `execution_role`**, each accepting `create`, `arn`, `name`, `inline_policy`
+  and `attach_policies`. `execution_role` additionally takes
+  `attach_execution_policy`, defaulting to `true`.
+
+  This replaces `role`, `initial_role`, and the flat `task_role_arn` /
+  `execution_role_arn` variables, all of which are removed. `create` and `arn`
+  are mutually exclusive per role.
+
+  The two roles previously shared one identity, so the container carried the
+  ECS agent's startup permissions and neither could be scoped down. They now
+  default differently, matching what they are for: the task role starts empty
+  because only the application knows what it needs, while a created execution
+  role gets `AmazonECSTaskExecutionRolePolicy` because that is the same for
+  every service. Previously that attachment was opt-in and off, so
+  `role.create = true` produced a role that could not pull an image — tasks
+  failed with `CannotPullContainerError`.
+
+  **Migration.** A `moved` block maps `aws_iam_role.this` to
+  `aws_iam_role.task`, so an existing module-created role becomes the task role
+  and keeps its inline policy and attachments rather than being destroyed.
+  Rewrite the inputs:
+
+  ```hcl
+  # before
+  role         = { create = true, inline_policy = "...", attach_execution_policy = true }
+  initial_role = aws_iam_role.existing.arn
+
+  # after
+  task_role      = { create = true, inline_policy = "..." }
+  execution_role = { create = true }              # or { arn = ... }
+  ```
+
+  Setting `execution_role.create = true` adds a second IAM role. To keep one
+  shared identity, point both at the same ARN.
+
+- **Outputs `service_role_arn` and `service_role_name` are replaced** by
+  `task_role_arn`, `execution_role_arn`, `task_role_name` and
+  `execution_role_name`. The ARN outputs report the role in effect whether it
+  was created here or supplied.
+
+
 - **`ecr.mutability` now defaults to `IMMUTABLE`** (was `MUTABLE`). Immutable
   tags stop a build from silently replacing an image another deployment is
   already running.

@@ -158,49 +158,50 @@ resource "cloudflare_record" "api" {
 }
 ```
 
-## Service IAM Role
+## Task and execution roles
 
-By default the module creates no IAM. You can either pass an existing role via
-`initial_role`, or let the module create a dedicated role for the service via the
-`role` block. When `role.create = true`, the created role is assumable only by the
-ECS tasks service (`ecs-tasks.amazonaws.com`) and its ARN becomes the default for
-**both** `task_role_arn` and `execution_role_arn` — so `initial_role` is no longer
-needed (if set, it is ignored while `role.create = true`).
+The two roles do different jobs, so the module configures them separately.
+
+- **Task role** — what the container assumes for application work (S3, SQS, …).
+  Inherently per-service, so it starts with no permissions.
+- **Execution role** — what the ECS agent assumes to *start* the task: pull from
+  ECR, write logs, fetch secrets. Effectively the same for every service, so
+  when the module creates one it attaches `AmazonECSTaskExecutionRolePolicy`
+  automatically.
+
+Each role is independently created here, supplied by ARN, or left absent:
 
 ```hcl
-module "ecs_service" {
-  source           = "delivops/ecs-service/aws"
-  ecs_cluster_name = "production"
-  ecs_service_name = "worker"
-  # ... networking ...
+task_role = {
+  create        = true
+  inline_policy = jsonencode({ ... })   # this service's own permissions
+  attach_policies = ["arn:aws:iam::aws:policy/..."]
+}
 
-  role = {
-    create                  = true
-    attach_execution_policy = true # attach AmazonECSTaskExecutionRolePolicy
-    inline_policy = jsonencode({
-      Version = "2012-10-17"
-      Statement = [{
-        Effect   = "Allow"
-        Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage"]
-        Resource = "*"
-      }]
-    })
-    attach_policies = ["arn:aws:iam::aws:policy/AmazonSQSReadOnlyAccess"]
-  }
+execution_role = {
+  arn = aws_iam_role.shared_execution.arn   # one shared role across services
 }
 ```
 
-| Field | Type | Default | Description |
+| Field | `task_role` | `execution_role` | Default |
 |---|---|---|---|
-| `create` | `bool` | `false` | Create the role. Off by default. |
-| `name` | `string` | `""` | Role name. Defaults to `"<cluster>_<service>"`. |
-| `inline_policy` | `string` | `""` | Inline IAM policy document (JSON). |
-| `attach_policies` | `list(string)` | `[]` | Managed policy ARNs to attach. |
-| `attach_execution_policy` | `bool` | `false` | Attach `AmazonECSTaskExecutionRolePolicy`. |
+| `create` | ✓ | ✓ | `false` |
+| `arn` | ✓ | ✓ | `""` |
+| `name` | ✓ | ✓ | `"<cluster>_<service>"` (execution role suffixed `_execution`) |
+| `inline_policy` | ✓ | ✓ | `""` |
+| `attach_policies` | ✓ | ✓ | `[]` |
+| `attach_execution_policy` | — | ✓ | `true` |
 
-The created role's ARN and name are available via the `service_role_arn` and
-`service_role_name` outputs. The legacy `initial_role` input continues to work
-for callers that manage the role themselves.
+`create` and `arn` are mutually exclusive; setting both is a validation error
+rather than a silent precedence rule.
+
+`AmazonECSTaskExecutionRolePolicy` does **not** grant access to secrets. If the
+task definition references `secrets` from SSM Parameter Store or Secrets
+Manager, add `ssm:GetParameters` / `secretsmanager:GetSecretValue` through
+`execution_role.inline_policy`.
+
+The effective ARNs are exposed as the `task_role_arn` and `execution_role_arn`
+outputs, and published to SSM (below) for a deploy pipeline.
 
 ## SSM Parameters
 
@@ -305,10 +306,13 @@ This module is released under the MIT License.
 | [aws_cloudwatch_log_group.ecs_log_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_ecs_service.ecs_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service) | resource |
 | [aws_ecs_task_definition.task_definition](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
-| [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy.inline](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
-| [aws_iam_role_policy_attachment.attached](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.execution](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role.execution](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role.task](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.execution_inline](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy.task_inline](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy_attachment.execution_attached](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.execution_managed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.task_attached](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_lb_listener.tcp_listener](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
 | [aws_lb_listener.tcp_listener_additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
 | [aws_lb_listener_rule.rule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
@@ -343,20 +347,18 @@ This module is released under the MIT License.
 | <a name="input_ecs_task_cpu"></a> [ecs\_task\_cpu](#input\_ecs\_task\_cpu) | CPU units for the ECS task | `number` | `256` | no |
 | <a name="input_ecs_task_memory"></a> [ecs\_task\_memory](#input\_ecs\_task\_memory) | Memory for the ECS task in MiB | `number` | `512` | no |
 | <a name="input_enable_execute_command"></a> [enable\_execute\_command](#input\_enable\_execute\_command) | Enable execute command | `bool` | `false` | no |
-| <a name="input_execution_role_arn"></a> [execution\_role\_arn](#input\_execution\_role\_arn) | ARN of the IAM role the ECS agent assumes to start the task (ECR pull, log write, secret fetch). Overrides the shared role from role.create/initial\_role. Also published to SSM at /ecs/<cluster>/<service>/execution-role. | `string` | `""` | no |
-| <a name="input_initial_role"></a> [initial\_role](#input\_initial\_role) | ARN (or name) of an existing IAM role to use for both task role and execution role. Ignored when role.create = true, in which case the module-created role is used instead. | `string` | `""` | no |
+| <a name="input_execution_role"></a> [execution\_role](#input\_execution\_role) | IAM role the ECS agent assumes to start the task — ECR pull, log write, secret fetch. Either create it here (create = true) or supply an existing one (arn); a single execution role shared across services is a common pattern. When created, AmazonECSTaskExecutionRolePolicy is attached by default, since that policy is the same for every service. It does not cover secrets: add ssm:GetParameters or secretsmanager:GetSecretValue via inline\_policy if the task definition references any. | <pre>object({<br/>    create                  = optional(bool, false)<br/>    arn                     = optional(string, "")<br/>    name                    = optional(string, "")<br/>    inline_policy           = optional(string, "")<br/>    attach_policies         = optional(list(string), [])<br/>    attach_execution_policy = optional(bool, true)<br/>  })</pre> | `{}` | no |
 | <a name="input_log_anomaly_detection"></a> [log\_anomaly\_detection](#input\_log\_anomaly\_detection) | CloudWatch Logs Anomaly Detection configuration | <pre>object({<br/>    enabled                 = optional(bool, false)<br/>    evaluation_frequency    = optional(string, "TEN_MIN")<br/>    anomaly_visibility_time = optional(number, 7)<br/>    filter_pattern          = optional(string, "")<br/>  })</pre> | `{}` | no |
 | <a name="input_log_kms_key_id"></a> [log\_kms\_key\_id](#input\_log\_kms\_key\_id) | ARN of a KMS key to encrypt the CloudWatch log group. Empty uses the default AWS-owned key. The key policy must allow the CloudWatch Logs service principal in this region. | `string` | `""` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs | `number` | `7` | no |
 | <a name="input_network_mode"></a> [network\_mode](#input\_network\_mode) | Network mode for the ECS task definition. Fargate requires 'awsvpc'. EC2 supports 'awsvpc', 'bridge', 'host', or 'none'. | `string` | `"awsvpc"` | no |
 | <a name="input_placement_constraints"></a> [placement\_constraints](#input\_placement\_constraints) | Placement constraints for ECS service (only applicable for EC2 launch type). Type can be distinctInstance or memberOf. | <pre>list(object({<br/>    type       = string<br/>    expression = optional(string)<br/>  }))</pre> | `[]` | no |
 | <a name="input_placement_strategy"></a> [placement\_strategy](#input\_placement\_strategy) | Ordered placement strategy for ECS service (only applicable for EC2 launch type). Type can be binpack, spread, or random. | <pre>list(object({<br/>    type  = string<br/>    field = optional(string)<br/>  }))</pre> | `[]` | no |
-| <a name="input_role"></a> [role](#input\_role) | Optionally create a dedicated IAM role for this service, assumable only by the ECS tasks service (ecs-tasks.amazonaws.com). When create = true, the role's ARN becomes the default for both task\_role\_arn and execution\_role\_arn, so initial\_role need not be set. | <pre>object({<br/>    create                  = optional(bool, false)      # Create the role. Default off.<br/>    name                    = optional(string, "")       # Role name. Defaults to "<cluster>_<service>".<br/>    inline_policy           = optional(string, "")       # Inline IAM policy document (JSON, e.g. jsonencode({...})).<br/>    attach_policies         = optional(list(string), []) # Managed policy ARNs to attach.<br/>    attach_execution_policy = optional(bool, false)      # Attach AmazonECSTaskExecutionRolePolicy.<br/>  })</pre> | `{}` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for the ECS tasks. Required when network\_mode is 'awsvpc'. | `list(string)` | `[]` | no |
 | <a name="input_service_connect"></a> [service\_connect](#input\_service\_connect) | ECS Service Connect configuration. type = client-only joins the namespace as a client; client-server also advertises this service (default port plus optional additional\_ports) for discovery by other services. The namespace is assumed to share the cluster name. | <pre>object({<br/>    enabled     = optional(bool, false)<br/>    type        = optional(string, "client-only")<br/>    port        = optional(number, 80)<br/>    name        = optional(string, "service")<br/>    timeout     = optional(number, 15)<br/>    appProtocol = optional(string, "http")<br/>    additional_ports = optional(list(object({<br/>      name        = string<br/>      port        = number<br/>      appProtocol = optional(string, "http")<br/>    })), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Subnet IDs for the ECS tasks. Required when network\_mode is 'awsvpc'. | `list(string)` | `[]` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to add to all resources | `map(string)` | `{}` | no |
-| <a name="input_task_role_arn"></a> [task\_role\_arn](#input\_task\_role\_arn) | ARN of the IAM role the container assumes (application permissions). Overrides the shared role from role.create/initial\_role. Also published to SSM at /ecs/<cluster>/<service>/task-role. | `string` | `""` | no |
+| <a name="input_task_role"></a> [task\_role](#input\_task\_role) | IAM role the container assumes — the application's own permissions. Either create it here (create = true, with inline\_policy and attach\_policies) or supply an existing one (arn). It starts with no permissions: only the application knows what it needs. | <pre>object({<br/>    create          = optional(bool, false)<br/>    arn             = optional(string, "")<br/>    name            = optional(string, "")<br/>    inline_policy   = optional(string, "")<br/>    attach_policies = optional(list(string), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC | `string` | n/a | yes |
 
 ## Outputs
@@ -366,12 +368,14 @@ This module is released under the MIT License.
 | <a name="output_cloudwatch_log_group_name"></a> [cloudwatch\_log\_group\_name](#output\_cloudwatch\_log\_group\_name) | n/a |
 | <a name="output_ecs_service_name"></a> [ecs\_service\_name](#output\_ecs\_service\_name) | n/a |
 | <a name="output_ecs_task_definition_arn"></a> [ecs\_task\_definition\_arn](#output\_ecs\_task\_definition\_arn) | n/a |
+| <a name="output_execution_role_arn"></a> [execution\_role\_arn](#output\_execution\_role\_arn) | ARN of the execution role in effect, whether created here or supplied (null when there is none). |
+| <a name="output_execution_role_name"></a> [execution\_role\_name](#output\_execution\_role\_name) | Name of the execution role created by this module (null unless execution\_role.create = true). |
 | <a name="output_load_balancer"></a> [load\_balancer](#output\_load\_balancer) | DNS details of the ALB(s) fronting the service. Use these (e.g. dns\_name) to create DNS records such as Cloudflare CNAMEs outside this module. |
 | <a name="output_log_anomaly_detector_arn"></a> [log\_anomaly\_detector\_arn](#output\_log\_anomaly\_detector\_arn) | ARN of the CloudWatch Logs Anomaly Detector (if enabled) |
 | <a name="output_log_anomaly_detector_name"></a> [log\_anomaly\_detector\_name](#output\_log\_anomaly\_detector\_name) | Name of the CloudWatch Logs Anomaly Detector (if enabled) |
 | <a name="output_route53_records"></a> [route53\_records](#output\_route53\_records) | Route53 DNS records created |
-| <a name="output_service_role_arn"></a> [service\_role\_arn](#output\_service\_role\_arn) | ARN of the IAM role created for this service (null if role.create = false). |
-| <a name="output_service_role_name"></a> [service\_role\_name](#output\_service\_role\_name) | Name of the IAM role created for this service (null if role.create = false). |
 | <a name="output_ssm_execution_role_parameter_name"></a> [ssm\_execution\_role\_parameter\_name](#output\_ssm\_execution\_role\_parameter\_name) | Name of the SSM parameter holding the execution role ARN (null when no execution role exists). |
 | <a name="output_ssm_task_role_parameter_name"></a> [ssm\_task\_role\_parameter\_name](#output\_ssm\_task\_role\_parameter\_name) | Name of the SSM parameter holding the task role ARN (null when no task role exists). |
+| <a name="output_task_role_arn"></a> [task\_role\_arn](#output\_task\_role\_arn) | ARN of the task role in effect, whether created here or supplied (null when there is none). |
+| <a name="output_task_role_name"></a> [task\_role\_name](#output\_task\_role\_name) | Name of the task role created by this module (null unless task\_role.create = true). |
 <!-- END_TF_DOCS -->
