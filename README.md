@@ -158,49 +158,50 @@ resource "cloudflare_record" "api" {
 }
 ```
 
-## Service IAM Role
+## Task and execution roles
 
-By default the module creates no IAM. You can either pass an existing role via
-`initial_role`, or let the module create a dedicated role for the service via the
-`role` block. When `role.create = true`, the created role is assumable only by the
-ECS tasks service (`ecs-tasks.amazonaws.com`) and its ARN becomes the default for
-**both** `task_role_arn` and `execution_role_arn` — so `initial_role` is no longer
-needed (if set, it is ignored while `role.create = true`).
+The two roles do different jobs, so the module configures them separately.
+
+- **Task role** — what the container assumes for application work (S3, SQS, …).
+  Inherently per-service, so it starts with no permissions.
+- **Execution role** — what the ECS agent assumes to *start* the task: pull from
+  ECR, write logs, fetch secrets. Effectively the same for every service, so
+  when the module creates one it attaches `AmazonECSTaskExecutionRolePolicy`
+  automatically.
+
+Each role is independently created here, supplied by ARN, or left absent:
 
 ```hcl
-module "ecs_service" {
-  source           = "delivops/ecs-service/aws"
-  ecs_cluster_name = "production"
-  ecs_service_name = "worker"
-  # ... networking ...
+task_role = {
+  create        = true
+  inline_policy = jsonencode({ ... })   # this service's own permissions
+  attach_policies = ["arn:aws:iam::aws:policy/..."]
+}
 
-  role = {
-    create                  = true
-    attach_execution_policy = true # attach AmazonECSTaskExecutionRolePolicy
-    inline_policy = jsonencode({
-      Version = "2012-10-17"
-      Statement = [{
-        Effect   = "Allow"
-        Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage"]
-        Resource = "*"
-      }]
-    })
-    attach_policies = ["arn:aws:iam::aws:policy/AmazonSQSReadOnlyAccess"]
-  }
+execution_role = {
+  arn = aws_iam_role.shared_execution.arn   # one shared role across services
 }
 ```
 
-| Field | Type | Default | Description |
+| Field | `task_role` | `execution_role` | Default |
 |---|---|---|---|
-| `create` | `bool` | `false` | Create the role. Off by default. |
-| `name` | `string` | `""` | Role name. Defaults to `"<cluster>_<service>"`. |
-| `inline_policy` | `string` | `""` | Inline IAM policy document (JSON). |
-| `attach_policies` | `list(string)` | `[]` | Managed policy ARNs to attach. |
-| `attach_execution_policy` | `bool` | `false` | Attach `AmazonECSTaskExecutionRolePolicy`. |
+| `create` | ✓ | ✓ | `false` |
+| `arn` | ✓ | ✓ | `""` |
+| `name` | ✓ | ✓ | `"<cluster>_<service>"` (execution role suffixed `_execution`) |
+| `inline_policy` | ✓ | ✓ | `""` |
+| `attach_policies` | ✓ | ✓ | `[]` |
+| `attach_execution_policy` | — | ✓ | `true` |
 
-The created role's ARN and name are available via the `service_role_arn` and
-`service_role_name` outputs. The legacy `initial_role` input continues to work
-for callers that manage the role themselves.
+`create` and `arn` are mutually exclusive; setting both is a validation error
+rather than a silent precedence rule.
+
+`AmazonECSTaskExecutionRolePolicy` does **not** grant access to secrets. If the
+task definition references `secrets` from SSM Parameter Store or Secrets
+Manager, add `ssm:GetParameters` / `secretsmanager:GetSecretValue` through
+`execution_role.inline_policy`.
+
+The effective ARNs are exposed as the `task_role_arn` and `execution_role_arn`
+outputs, and published to SSM (below) for a deploy pipeline.
 
 ## SSM Parameters
 

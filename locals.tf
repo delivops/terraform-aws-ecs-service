@@ -5,23 +5,15 @@ locals {
     var.tags
   )
 
-  # Effective task/execution role ARN: the module-created role wins when
-  # role.create = true, otherwise fall back to initial_role (or null).
-  service_role_arn = var.role.create ? aws_iam_role.this[0].arn : (var.initial_role != "" ? var.initial_role : null)
+  # Each role is created here, supplied by ARN, or absent.
+  task_role_arn      = var.task_role.create ? aws_iam_role.task[0].arn : (var.task_role.arn != "" ? var.task_role.arn : null)
+  execution_role_arn = var.execution_role.create ? aws_iam_role.execution[0].arn : (var.execution_role.arn != "" ? var.execution_role.arn : null)
 
-  # Derived from configuration rather than from service_role_arn, because
-  # aws_iam_role.this[0].arn is unknown at plan time until the role exists, and
-  # a count derived from an unknown value fails the plan. Anything using this as
-  # a count or for_each must not switch to testing the ARN.
-  has_service_role = var.role.create || var.initial_role != ""
-
-  # An explicit task_role_arn/execution_role_arn allows the two identities to
-  # differ; otherwise both fall back to the shared role.
-  task_role_arn      = var.task_role_arn != "" ? var.task_role_arn : local.service_role_arn
-  execution_role_arn = var.execution_role_arn != "" ? var.execution_role_arn : local.service_role_arn
-
-  has_task_role      = var.task_role_arn != "" || local.has_service_role
-  has_execution_role = var.execution_role_arn != "" || local.has_service_role
+  # Derived from configuration rather than from the ARNs above: a created role's
+  # arn is unknown at plan time, and a count derived from an unknown value fails
+  # the plan. Anything using these as a count or for_each must not test the ARN.
+  has_task_role      = var.task_role.create || var.task_role.arn != ""
+  has_execution_role = var.execution_role.create || var.execution_role.arn != ""
 
   # awsvpc tasks get their own ENI and register with the target group by IP;
   # bridge and host tasks share the instance network stack and register by

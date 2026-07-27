@@ -9,14 +9,24 @@ output "cloudwatch_log_group_name" {
   value = aws_cloudwatch_log_group.ecs_log_group.name
 }
 
-output "service_role_arn" {
-  description = "ARN of the IAM role created for this service (null if role.create = false)."
-  value       = var.role.create ? aws_iam_role.this[0].arn : null
+output "task_role_arn" {
+  description = "ARN of the task role in effect, whether created here or supplied (null when there is none)."
+  value       = local.task_role_arn
 }
 
-output "service_role_name" {
-  description = "Name of the IAM role created for this service (null if role.create = false)."
-  value       = var.role.create ? aws_iam_role.this[0].name : null
+output "execution_role_arn" {
+  description = "ARN of the execution role in effect, whether created here or supplied (null when there is none)."
+  value       = local.execution_role_arn
+}
+
+output "task_role_name" {
+  description = "Name of the task role created by this module (null unless task_role.create = true)."
+  value       = var.task_role.create ? aws_iam_role.task[0].name : null
+}
+
+output "execution_role_name" {
+  description = "Name of the execution role created by this module (null unless execution_role.create = true)."
+  value       = var.execution_role.create ? aws_iam_role.execution[0].name : null
 }
 
 output "ssm_task_role_parameter_name" {
