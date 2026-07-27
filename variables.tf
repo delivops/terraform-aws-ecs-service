@@ -14,6 +14,12 @@ variable "log_retention_days" {
   default     = 7
 }
 
+variable "log_kms_key_id" {
+  description = "ARN of a KMS key to encrypt the CloudWatch log group. Empty uses the default AWS-owned key. The key policy must allow the CloudWatch Logs service principal in this region."
+  type        = string
+  default     = ""
+}
+
 variable "application_load_balancer" {
   description = "alb"
   type = object({
@@ -344,6 +350,8 @@ variable "ecr" {
     create_repo         = optional(bool, false)
     repo_name           = optional(string, "")
     mutability          = optional(string, "MUTABLE")
+    scan_on_push        = optional(bool, true)
+    kms_key_id          = optional(string, "") # KMS key ARN. Empty uses AES256. Setting this replaces the repository.
     untagged_ttl_days   = optional(number, 7)
     tagged_ttl_days     = optional(number, 7)
     protected_prefixes  = optional(list(string), ["main", "master"])
