@@ -8,6 +8,28 @@ Releases are cut automatically from conventional-commit messages on merge to
 `main`. A breaking change requires `feat!:` or a `BREAKING CHANGE:` footer in
 the squash commit; without one the release workflow defaults to a patch bump.
 
+## [Unreleased]
+
+### Removed
+
+- **Built-in autoscaling.** The `cpu_auto_scaling`, `memory_auto_scaling`,
+  `sqs_autoscaling` and `schedule_auto_scaling` variables are gone, along with
+  every resource they created: `aws_appautoscaling_target`,
+  `aws_appautoscaling_policy`, `aws_appautoscaling_scheduled_action`, and the
+  SQS CloudWatch metric and composite alarms.
+
+  **On apply, Terraform destroys any of these the module previously created.**
+  A service scaled above its minimum will be scaled back down once the scaling
+  policies are gone.
+
+  Attach autoscaling externally against the `ecs_service_name` output — see
+  [`delivops/terraform-aws-ecs-custom-autoscaler`](https://github.com/delivops/terraform-aws-ecs-custom-autoscaler)
+  — or, to keep the existing resources, remove them from the module's state
+  with `terraform state rm` and adopt them in your own configuration before
+  upgrading.
+
+  `SQS_AUTOSCALING_MIGRATION.md` and the four autoscaling examples are removed.
+
 ## [2.1.0]
 
 ### Added
