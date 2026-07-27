@@ -2,17 +2,13 @@
 
 # AWS ECS Service Terraform Module
 
-This Terraform module deploys an ECS service on Fargate or EC2, with support for load balancing, auto-scaling, and custom deployment configurations.
+This Terraform module deploys an ECS service on Fargate or EC2, with support for load balancing and custom deployment configurations.
 
 ## Features
 
 - Creates an ECS service with the Fargate or EC2 launch type
 - Configurable load balancer target group with health checks
 - Support for host-based and path-based routing rules
-- Auto-scaling capabilities:
-  - CPU and Memory utilization-based scaling
-  - **Advanced SQS-based autoscaling with latency-first approach**
-  - Scheduled scaling
 - CloudWatch logging integration, with optional KMS encryption
 - Separate task and execution roles, published to SSM for a deploy pipeline
 - Deployment circuit breaker and CloudWatch alarms integration
@@ -25,8 +21,7 @@ This Terraform module deploys an ECS service on Fargate or EC2, with support for
 - Application/Network Load Balancer Target Group (optional)
 - Load Balancer Listener Rules (host-based and path-based)
 - CloudWatch Log Group
-- Auto Scaling Target and Policies
-- CloudWatch Alarms (optional)
+- CloudWatch Alarms for deployment circuit breaker (optional)
 - ECR Repository (optional)
 - IAM role (optional)
 - Route53 DNS Records (optional)
@@ -256,128 +251,17 @@ resource "cloudflare_record" "api" {
 }
 ```
 
-## SQS-based Autoscaling
+## Autoscaling
 
-This module supports advanced SQS-based autoscaling with best practices baked in. The implementation scales based on **message latency** (`ApproximateAgeOfOldestMessage`) rather than queue backlog, providing SLA-driven scaling behavior.
+Autoscaling is not managed by this module. Attach it externally against the
+`ecs_service_name` output — for example with
+[`delivops/terraform-aws-ecs-custom-autoscaler`](https://github.com/delivops/terraform-aws-ecs-custom-autoscaler),
+or your own `aws_appautoscaling_target` and `aws_appautoscaling_policy`
+resources.
 
-### Key Features
-
-- **Latency-first scaling**: Scales based on how long messages wait, not how many are in the queue
-- **Asymmetric timing**: Fast scale-out (60s periods), conservative scale-in (300s periods)
-- **Safe scale-in**: Composite alarm ensures queue is truly empty before scaling in
-- **Proportional step ladder**: Aggressive scale-out when latency is high
-- **Sensible defaults**: Minimal configuration required for production use
-
-### Quick Start
-
-Minimal configuration with opinionated defaults:
-
-```hcl
-module "queue_processor" {
-  source = "delivops/ecs-service/aws"
-  version = "~> 2.1"
-
-  ecs_cluster_name   = "my-cluster"
-  ecs_service_name   = "image-processor"
-  vpc_id             = var.vpc_id
-  subnet_ids         = var.subnet_ids
-  security_group_ids = var.security_group_ids
-
-  sqs_autoscaling = {
-    enabled               = true
-    queue_name            = "image-processing-queue"
-    min_replicas          = 0
-    max_replicas          = 500
-    scale_out_age_seconds = 120  # Scale out when messages are 2+ minutes old
-    scale_in_age_seconds  = 20   # Scale in when messages are under 20 seconds old
-  }
-}
-```
-
-### Advanced Configuration
-
-Customize the step ladder and timings:
-
-```hcl
-sqs_autoscaling = {
-  enabled               = true
-  queue_name            = "jobs-queue"
-  min_replicas          = 2
-  max_replicas          = 300
-  scale_out_age_seconds = 90
-  scale_in_age_seconds  = 15
-
-  # Custom proportional step ladder
-  scale_out_steps = [
-    { lower = 0,   upper = 60,  change = 2  },  # Age 0-60s: add 2 tasks
-    { lower = 60,  upper = 240, change = 6  },  # Age 60-240s: add 6 tasks  
-    { lower = 240, upper = null, change = 18 } # Age 240s+: add 18 tasks
-  ]
-
-  # Custom cooldowns
-  scale_out_cooldown = 90
-  scale_in_cooldown  = 900
-
-  # Slower scale-in
-  scale_in_step = -2
-
-  # Enable smoothing (3-point moving average)
-  age_sma_points = 3
-}
-```
-
-### Why Latency over Backlog?
-
-**Old approach** (backlog-based):
-- ❌ Hard to set meaningful thresholds
-- ❌ Same backlog means different things at different processing speeds
-- ❌ Doesn't reflect actual user experience
-
-**New approach** (latency-based):
-- ✅ Direct measure of SLA compliance
-- ✅ Easy to reason about ("jobs should not wait more than 2 minutes")
-- ✅ Adapts to processing speed automatically
-
-### Default Behavior
-
-When you don't specify `scale_out_steps`, the module uses this proportional ladder:
-
-```hcl
-[
-  { lower = 0,   upper = 100, change = 2  },  # 0-100s age: add 2 tasks
-  { lower = 100, upper = 500, change = 5  },  # 100-500s: add 5 tasks
-  { lower = 500, upper = null, change = 15 }  # 500s+: add 15 tasks
-]
-```
-
-#### Scale-In Behavior
-
-**By default** (`require_empty_for_scale_in = false`), scale-in happens when:
-- Age stays below threshold (`scale_in_age_seconds`) for 15 minutes (3 evaluations × 5 minutes)
-- This is **cost-efficient**: if messages are being processed quickly, you're over-provisioned
-
-**For maximum stability** (`require_empty_for_scale_in = true`), scale-in requires:
-1. Age below threshold (`scale_in_age_seconds`)
-2. Visible messages count is zero
-3. In-flight messages count is zero
-
-Use `true` when you want to ensure all work is completed before reducing capacity, or when your workload has high oscillation risk.
-
-### Migration from Old Schema
-
-⚠️ **Breaking Change**: The `sqs_auto_scaling` variable has been redesigned as `sqs_autoscaling` (no underscore).
-
-See [SQS_AUTOSCALING_MIGRATION.md](./SQS_AUTOSCALING_MIGRATION.md) for detailed migration instructions.
-
-### Examples
-
-See [examples/sqs-auto-scaling-example.tf](./examples/sqs-auto-scaling-example.tf) for complete examples including:
-- Minimal configuration with defaults
-- Custom step ladder and timings
-- Stability mode with composite alarm
-- Smoothed metrics with SMA
-
-**Rationale for age-driven scale-in:** The 15-minute detection window (300s periods × 3 evaluations) provides strong hysteresis. If age stays low throughout this window, it's a clear signal that capacity exceeds demand. This is more cost-efficient than waiting for the queue to be completely empty.
+`desired_count` is in the service's `ignore_changes`, so an external autoscaler
+owns the running task count without Terraform reverting it. `var.desired_count`
+only seeds the count at service creation.
 
 ## Notes
 
@@ -416,20 +300,8 @@ This module is released under the MIT License.
 |------|------|
 | [aws_alb_target_group.target_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/alb_target_group) | resource |
 | [aws_alb_target_group.target_group_additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/alb_target_group) | resource |
-| [aws_appautoscaling_policy.scale_by_cpu_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
-| [aws_appautoscaling_policy.scale_by_memory_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
-| [aws_appautoscaling_policy.sqs_scale_in](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
-| [aws_appautoscaling_policy.sqs_scale_out](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_policy) | resource |
-| [aws_appautoscaling_scheduled_action.ecs_scheduled_scaling](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_scheduled_action) | resource |
-| [aws_appautoscaling_target.ecs_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/appautoscaling_target) | resource |
-| [aws_cloudwatch_composite_alarm.sqs_scale_in_safe](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_composite_alarm) | resource |
 | [aws_cloudwatch_log_anomaly_detector.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_anomaly_detector) | resource |
 | [aws_cloudwatch_log_group.ecs_log_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
-| [aws_cloudwatch_metric_alarm.sqs_age_in_ready](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
-| [aws_cloudwatch_metric_alarm.sqs_age_out](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
-| [aws_cloudwatch_metric_alarm.sqs_age_out_sma](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
-| [aws_cloudwatch_metric_alarm.sqs_notvisible_zero](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
-| [aws_cloudwatch_metric_alarm.sqs_visible_zero](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
 | [aws_ecs_service.ecs_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_service) | resource |
 | [aws_ecs_task_definition.task_definition](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
 | [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
@@ -461,7 +333,6 @@ This module is released under the MIT License.
 | <a name="input_capacity_provider_strategy"></a> [capacity\_provider\_strategy](#input\_capacity\_provider\_strategy) | Name of an existing ECS capacity provider for the service. When set, the service uses it instead of a plain launch\_type. Leave empty to use ecs\_launch\_type directly. | `string` | `""` | no |
 | <a name="input_container_image"></a> [container\_image](#input\_container\_image) | Docker image for the container | `string` | `"nginx:latest"` | no |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | Name of the container | `string` | `"app"` | no |
-| <a name="input_cpu_auto_scaling"></a> [cpu\_auto\_scaling](#input\_cpu\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    enabled            = optional(bool, false)<br/>    min_replicas       = optional(number, 0)<br/>    max_replicas       = optional(number, 1)<br/>    scale_in_cooldown  = optional(number, 300)<br/>    scale_out_cooldown = optional(number, 300)<br/>    target_value       = optional(number, 70)<br/>  })</pre> | `{}` | no |
 | <a name="input_deployment"></a> [deployment](#input\_deployment) | Deployment configuration for the ECS service | <pre>object({<br/>    min_healthy_percent       = optional(number, 100)<br/>    max_healthy_percent       = optional(number, 200)<br/>    circuit_breaker_enabled   = optional(bool, true)<br/>    rollback_enabled          = optional(bool, true)<br/>    cloudwatch_alarm_enabled  = optional(bool, false)<br/>    cloudwatch_alarm_rollback = optional(bool, true)<br/>    cloudwatch_alarm_names    = optional(list(string), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_desired_count"></a> [desired\_count](#input\_desired\_count) | Number of tasks at service creation. Not reconciled afterwards — desired\_count is in the service's ignore\_changes, so an autoscaler or deploy pipeline can own the running count without Terraform reverting it. | `number` | `1` | no |
 | <a name="input_ecr"></a> [ecr](#input\_ecr) | ECR repository configuration | <pre>object({<br/>    create_repo         = optional(bool, false)<br/>    repo_name           = optional(string, "")<br/>    mutability          = optional(string, "MUTABLE")<br/>    scan_on_push        = optional(bool, true)<br/>    kms_key_id          = optional(string, "") # KMS key ARN. Empty uses AES256. Setting this replaces the repository.<br/>    untagged_ttl_days   = optional(number, 7)<br/>    tagged_ttl_days     = optional(number, 7)<br/>    protected_prefixes  = optional(list(string), ["main", "master"])<br/>    protected_retention = optional(number, 999999) # Keep nearly forever<br/>    versioned_prefixes  = optional(list(string), ["v", "sha"])<br/>    versioned_retention = optional(number, 30) # How many versioned tags to keep<br/>  })</pre> | `{}` | no |
@@ -476,15 +347,12 @@ This module is released under the MIT License.
 | <a name="input_log_anomaly_detection"></a> [log\_anomaly\_detection](#input\_log\_anomaly\_detection) | CloudWatch Logs Anomaly Detection configuration | <pre>object({<br/>    enabled                 = optional(bool, false)<br/>    evaluation_frequency    = optional(string, "TEN_MIN")<br/>    anomaly_visibility_time = optional(number, 7)<br/>    filter_pattern          = optional(string, "")<br/>  })</pre> | `{}` | no |
 | <a name="input_log_kms_key_id"></a> [log\_kms\_key\_id](#input\_log\_kms\_key\_id) | ARN of a KMS key to encrypt the CloudWatch log group. Empty uses the default AWS-owned key. The key policy must allow the CloudWatch Logs service principal in this region. | `string` | `""` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs | `number` | `7` | no |
-| <a name="input_memory_auto_scaling"></a> [memory\_auto\_scaling](#input\_memory\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    enabled            = optional(bool, false)<br/>    min_replicas       = optional(number, 0)<br/>    max_replicas       = optional(number, 1)<br/>    scale_in_cooldown  = optional(number, 300)<br/>    scale_out_cooldown = optional(number, 300)<br/>    target_value       = optional(number, 70)<br/><br/>  })</pre> | `{}` | no |
 | <a name="input_network_mode"></a> [network\_mode](#input\_network\_mode) | Network mode for the ECS task definition. Fargate requires 'awsvpc'. EC2 supports 'awsvpc', 'bridge', 'host', or 'none'. | `string` | `"awsvpc"` | no |
 | <a name="input_placement_constraints"></a> [placement\_constraints](#input\_placement\_constraints) | Placement constraints for ECS service (only applicable for EC2 launch type). Type can be distinctInstance or memberOf. | <pre>list(object({<br/>    type       = string<br/>    expression = optional(string)<br/>  }))</pre> | `[]` | no |
 | <a name="input_placement_strategy"></a> [placement\_strategy](#input\_placement\_strategy) | Ordered placement strategy for ECS service (only applicable for EC2 launch type). Type can be binpack, spread, or random. | <pre>list(object({<br/>    type  = string<br/>    field = optional(string)<br/>  }))</pre> | `[]` | no |
 | <a name="input_role"></a> [role](#input\_role) | Optionally create a dedicated IAM role for this service, assumable only by the ECS tasks service (ecs-tasks.amazonaws.com). When create = true, the role's ARN becomes the default for both task\_role\_arn and execution\_role\_arn, so initial\_role need not be set. | <pre>object({<br/>    create                  = optional(bool, false)      # Create the role. Default off.<br/>    name                    = optional(string, "")       # Role name. Defaults to "<cluster>_<service>".<br/>    inline_policy           = optional(string, "")       # Inline IAM policy document (JSON, e.g. jsonencode({...})).<br/>    attach_policies         = optional(list(string), []) # Managed policy ARNs to attach.<br/>    attach_execution_policy = optional(bool, false)      # Attach AmazonECSTaskExecutionRolePolicy.<br/>  })</pre> | `{}` | no |
-| <a name="input_schedule_auto_scaling"></a> [schedule\_auto\_scaling](#input\_schedule\_auto\_scaling) | Scheduled auto scaling configuration | <pre>object({<br/>    enabled = optional(bool, false)<br/>    schedules = optional(list(object({<br/>      schedule_name       = optional(string, "")<br/>      min_replicas        = optional(number, 0)<br/>      max_replicas        = optional(number, 1)<br/>      schedule_expression = optional(string, "cron(0 0 1 * ? *)") # cron expression<br/>      time_zone           = optional(string, "Asia/Jerusalem")<br/>    })), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for the ECS tasks. Required when network\_mode is 'awsvpc'. | `list(string)` | `[]` | no |
 | <a name="input_service_connect"></a> [service\_connect](#input\_service\_connect) | ECS Service Connect configuration. type = client-only joins the namespace as a client; client-server also advertises this service (default port plus optional additional\_ports) for discovery by other services. The namespace is assumed to share the cluster name. | <pre>object({<br/>    enabled     = optional(bool, false)<br/>    type        = optional(string, "client-only")<br/>    port        = optional(number, 80)<br/>    name        = optional(string, "service")<br/>    timeout     = optional(number, 15)<br/>    appProtocol = optional(string, "http")<br/>    additional_ports = optional(list(object({<br/>      name        = string<br/>      port        = number<br/>      appProtocol = optional(string, "http")<br/>    })), [])<br/>  })</pre> | `{}` | no |
-| <a name="input_sqs_autoscaling"></a> [sqs\_autoscaling](#input\_sqs\_autoscaling) | Opinionated SQS autoscaling config for this ECS service. | <pre>object({<br/>    enabled = optional(bool, false)<br/><br/>    # Queue names — either set queue_name for both directions, or set each explicitly<br/>    queue_name           = optional(string)<br/>    scale_out_queue_name = optional(string)<br/>    scale_in_queue_name  = optional(string)<br/><br/>    # Capacity guardrails (required when enabled)<br/>    min_replicas = optional(number)<br/>    max_replicas = optional(number)<br/><br/>    # SLA thresholds for AgeOfOldestMessage (seconds)<br/>    scale_out_age_seconds = optional(number)<br/>    scale_in_age_seconds  = optional(number)<br/><br/>    # Scale-in behavior (defaults baked in)<br/>    # If true, requires queue to be completely empty before scaling in (more stable)<br/>    # If false (default), scales in based on age alone (more cost-efficient)<br/>    require_empty_for_scale_in = optional(bool)<br/>    empty_eval_periods         = optional(number)<br/>    empty_period_seconds       = optional(number)<br/><br/>    # Step ladders (scale-out proportional)<br/>    scale_out_steps = optional(list(object({<br/>      lower  = number<br/>      upper  = optional(number)<br/>      change = number<br/>    })))<br/><br/>    # Scale-in step size (gentle shrink)<br/>    scale_in_step = optional(number)<br/><br/>    # Cooldowns (override if needed)<br/>    scale_out_cooldown = optional(number)<br/>    scale_in_cooldown  = optional(number)<br/><br/>    # Smoothing for Age via metric math (simple SMA on 60s periods). 0 disables.<br/>    age_sma_points = optional(number)<br/><br/>    # Aggregation & missing data behavior<br/>    aggregation_type_out = optional(string)<br/>    aggregation_type_in  = optional(string)<br/>    treat_missing_out    = optional(string)<br/>    treat_missing_in     = optional(string)<br/>  })</pre> | `{}` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Subnet IDs for the ECS tasks. Required when network\_mode is 'awsvpc'. | `list(string)` | `[]` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to add to all resources | `map(string)` | `{}` | no |
 | <a name="input_task_role_arn"></a> [task\_role\_arn](#input\_task\_role\_arn) | ARN of the IAM role the container assumes (application permissions). Overrides the shared role from role.create/initial\_role. Also published to SSM at /ecs/<cluster>/<service>/task-role. | `string` | `""` | no |
