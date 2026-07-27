@@ -225,11 +225,11 @@ variable "capacity_provider_strategy" {
 }
 
 variable "ecr" {
-  description = "ECR repository configuration"
+  description = "ECR repository configuration. mutability = IMMUTABLE rejects a push that would overwrite an existing tag, so tags must be unique per build (a commit SHA rather than a moving branch name)."
   type = object({
     create_repo         = optional(bool, false)
     repo_name           = optional(string, "")
-    mutability          = optional(string, "MUTABLE")
+    mutability          = optional(string, "IMMUTABLE")
     scan_on_push        = optional(bool, true)
     kms_key_id          = optional(string, "") # KMS key ARN. Empty uses AES256. Setting this replaces the repository.
     untagged_ttl_days   = optional(number, 7)
@@ -240,6 +240,11 @@ variable "ecr" {
     versioned_retention = optional(number, 30) # How many versioned tags to keep
   })
   default = {}
+
+  validation {
+    condition     = contains(["MUTABLE", "IMMUTABLE"], var.ecr.mutability)
+    error_message = "ecr.mutability must be MUTABLE or IMMUTABLE."
+  }
 }
 
 variable "log_anomaly_detection" {

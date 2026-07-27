@@ -12,6 +12,25 @@ the squash commit; without one the release workflow defaults to a patch bump.
 
 ### Changed
 
+- **`ecr.mutability` now defaults to `IMMUTABLE`** (was `MUTABLE`). Immutable
+  tags stop a build from silently replacing an image another deployment is
+  already running.
+
+  The attribute change itself is applied in place — the repository is not
+  replaced and no images are lost. The consequence is at push time: once the
+  repository is immutable, `docker push` **fails** if the tag already exists.
+  A pipeline that pushes a moving tag such as `latest`, or a bare branch name
+  like `main`, breaks on its next run and must tag uniquely per build (a commit
+  SHA, or `main-<sha>`).
+
+  Note the module's own lifecycle policy defaults, `protected_prefixes =
+  ["main", "master"]` and `versioned_prefixes = ["v", "sha"]`, describe prefixed
+  tags rather than bare ones, which is compatible with immutability.
+
+  Set `ecr = { mutability = "MUTABLE" }` to keep the previous behaviour. A
+  validation now rejects any value other than `MUTABLE` or `IMMUTABLE`.
+
+
 - **Minimum Terraform is now `>= 1.9`**, declared in `versions.tf`. Required for
   validation rules that reference other input variables.
 - **The network-mode validations are now enforced.** They existed as
