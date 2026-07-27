@@ -25,6 +25,11 @@ locals {
     var.network_mode != "awsvpc" || (length(var.subnet_ids) > 0 && length(var.security_group_ids) > 0)
   ) ? true : tobool("subnet_ids and security_group_ids are required when network_mode is 'awsvpc'")
 
+  # awsvpc tasks get their own ENI and register with the target group by IP;
+  # bridge and host tasks share the instance network stack and register by
+  # instance id.
+  target_group_target_type = var.network_mode == "awsvpc" ? "ip" : "instance"
+
   # HTTP callers pass a listener ARN, from which the load balancer ARN is
   # derived. TCP callers pass nlb_arn directly, because the module creates the
   # listener itself and there is no caller-supplied listener ARN to derive from.

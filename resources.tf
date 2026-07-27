@@ -21,7 +21,7 @@ resource "aws_alb_target_group" "target_group" {
   port                 = var.application_load_balancer.container_port
   protocol             = var.application_load_balancer.protocol
   vpc_id               = var.vpc_id
-  target_type          = "ip"
+  target_type          = local.target_group_target_type
   deregistration_delay = var.application_load_balancer.deregister_deregistration_delay
 
   dynamic "stickiness" {
@@ -58,7 +58,7 @@ resource "aws_alb_target_group" "target_group_additional" {
   port                 = each.value.container_port
   protocol             = each.value.protocol
   vpc_id               = var.vpc_id
-  target_type          = "ip"
+  target_type          = local.target_group_target_type
   deregistration_delay = each.value.deregister_deregistration_delay
 
   dynamic "stickiness" {
@@ -273,10 +273,10 @@ resource "aws_ecs_service" "ecs_service" {
   deployment_maximum_percent         = var.deployment.max_healthy_percent
 
   enable_execute_command = var.enable_execute_command
-  launch_type            = var.capacity_provider_strategy == "" ? "FARGATE" : null
+  launch_type            = var.capacity_provider_strategy == "" ? var.ecs_launch_type : null
   scheduling_strategy    = "REPLICA"
   propagate_tags         = "SERVICE"
-  platform_version       = var.ecs_launch_type == "FARGATE" ? "LATEST" : ""
+  platform_version       = var.ecs_launch_type == "FARGATE" ? "LATEST" : null
   deployment_controller {
     type = "ECS"
   }
