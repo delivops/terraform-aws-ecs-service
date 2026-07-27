@@ -15,6 +15,14 @@ locals {
   # a count or for_each must not switch to testing the ARN.
   has_service_role = var.role.create || var.initial_role != ""
 
+  # An explicit task_role_arn/execution_role_arn allows the two identities to
+  # differ; otherwise both fall back to the shared role.
+  task_role_arn      = var.task_role_arn != "" ? var.task_role_arn : local.service_role_arn
+  execution_role_arn = var.execution_role_arn != "" ? var.execution_role_arn : local.service_role_arn
+
+  has_task_role      = var.task_role_arn != "" || local.has_service_role
+  has_execution_role = var.execution_role_arn != "" || local.has_service_role
+
   # Validation: Fargate requires awsvpc network mode
   validate_fargate_network_mode = (
     var.ecs_launch_type != "FARGATE" || var.network_mode == "awsvpc"

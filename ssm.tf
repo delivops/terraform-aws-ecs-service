@@ -20,3 +20,25 @@ resource "aws_ssm_parameter" "role" {
   value = local.service_role_arn
   tags  = local.common_tags
 }
+
+# /ecs/<cluster>/<service>/task-role and /execution-role — the task and
+# execution role ARNs published separately, so a pipeline can register a task
+# definition with distinct identities. In the common single-role setup both
+# carry the same ARN as /role.
+resource "aws_ssm_parameter" "task_role" {
+  count = local.has_task_role ? 1 : 0
+
+  name  = "/ecs/${var.ecs_cluster_name}/${var.ecs_service_name}/task-role"
+  type  = "String"
+  value = local.task_role_arn
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "execution_role" {
+  count = local.has_execution_role ? 1 : 0
+
+  name  = "/ecs/${var.ecs_cluster_name}/${var.ecs_service_name}/execution-role"
+  type  = "String"
+  value = local.execution_role_arn
+  tags  = local.common_tags
+}
