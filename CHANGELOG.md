@@ -8,9 +8,9 @@ Releases are cut automatically from conventional-commit messages on merge to
 `main`. A breaking change requires `feat!:` or a `BREAKING CHANGE:` footer in
 the squash commit; without one the release workflow defaults to a patch bump.
 
-## [Unreleased]
+## [3.0.0]
 
-### Changed
+### Breaking changes
 
 - **The IAM role interface is now two symmetric objects, `task_role` and
   `execution_role`**, each accepting `create`, `arn`, `name`, `inline_policy`
@@ -53,6 +53,9 @@ the squash commit; without one the release workflow defaults to a patch bump.
   `execution_role_name`. The ARN outputs report the role in effect whether it
   was created here or supplied.
 
+## [2.4.0]
+
+### Changed
 
 - **`ecr.mutability` now defaults to `IMMUTABLE`** (was `MUTABLE`). Immutable
   tags stop a build from silently replacing an image another deployment is
@@ -72,9 +75,13 @@ the squash commit; without one the release workflow defaults to a patch bump.
   Set `ecr = { mutability = "MUTABLE" }` to keep the previous behaviour. A
   validation now rejects any value other than `MUTABLE` or `IMMUTABLE`.
 
+## [2.3.0]
+
+### Changed
 
 - **Minimum Terraform is now `>= 1.9`**, declared in `versions.tf`. Required for
   validation rules that reference other input variables.
+
 - **The network-mode validations are now enforced.** They existed as
   `tobool(...)` expressions in unreferenced locals, so Terraform never evaluated
   them and they never rejected anything. They are now real `validation` blocks
@@ -87,6 +94,8 @@ the squash commit; without one the release workflow defaults to a patch bump.
   A configuration violating either used to plan and apply; it now fails at plan.
   Both describe configurations AWS rejects anyway, but the failure moves earlier
   and is visible to anyone who had one latent.
+
+## [2.2.0]
 
 ### Removed
 
@@ -107,6 +116,20 @@ the squash commit; without one the release workflow defaults to a patch bump.
   upgrading.
 
   `SQS_AUTOSCALING_MIGRATION.md` and the four autoscaling examples are removed.
+
+## [2.1.1]
+
+### Documentation
+
+- Added `CHANGELOG.md`, `CONTRIBUTING.md` and `.github/CODEOWNERS`.
+- README corrected: the module was described as Fargate-only despite EC2
+  support since v1.2.0; usage examples carried a placeholder `version = "xxx"`;
+  HCL blocks were fenced as `python`; the resources list omitted the ECR
+  repository and IAM role. Added a section documenting that the initial task
+  definition is write-once.
+- Rewrote variable descriptions that carried no information
+  (`application_load_balancer`, `capacity_provider_strategy`, `desired_count`,
+  `service_connect`).
 
 ## [2.1.0]
 
@@ -196,7 +219,7 @@ module default — resolves to `ip` and is unaffected. An EC2 service on
 
 ## Notes on earlier releases
 
-- Cloudflare DNS management was removed in v1.1.0. If an earlier version managed
+- Cloudflare DNS management was removed in v1.0.0. If an earlier version managed
   a `cloudflare_record` for you, remove it from the module's state
   (`terraform state rm ...`) and manage the record in your own configuration
   using the `load_balancer` output.

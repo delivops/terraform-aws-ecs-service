@@ -2,8 +2,9 @@
 
 ## Requirements
 
-Terraform and the AWS provider `>= 5.0`. No AWS credentials are needed for
-`fmt` or `validate`.
+Terraform `>= 1.9` (declared in `versions.tf`; required for validation rules
+that reference other input variables) and the AWS provider `>= 5.0`. No AWS
+credentials are needed for `fmt` or `validate`.
 
 ## Before opening a pull request
 
