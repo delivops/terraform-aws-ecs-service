@@ -151,13 +151,20 @@ locals {
 
   # jsonencode rather than a hand-built string, so characters that are special
   # in JSON are escaped correctly in container_name and container_image.
+  gpu_resource_requirements = var.gpu_count > 0 ? [
+    { type = "GPU", value = tostring(var.gpu_count) }
+  ] : []
+
   container_definitions = [
-    {
-      name         = var.container_name
-      image        = var.container_image
-      essential    = true
-      portMappings = local.port_mappings
-    }
+    merge(
+      {
+        name         = var.container_name
+        image        = var.container_image
+        essential    = true
+        portMappings = local.port_mappings
+      },
+      var.gpu_count > 0 ? { resourceRequirements = local.gpu_resource_requirements } : {}
+    )
   ]
 
   container_definitions_json = jsonencode(local.container_definitions)

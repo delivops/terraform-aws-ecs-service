@@ -14,6 +14,12 @@ variable "log_retention_days" {
   default     = 7
 }
 
+variable "log_kms_key_id" {
+  description = "ARN of a KMS key to encrypt the CloudWatch log group. Empty uses the default AWS-owned key. The key policy must allow the CloudWatch Logs service principal in this region."
+  type        = string
+  default     = ""
+}
+
 variable "application_load_balancer" {
   description = "alb"
   type = object({
@@ -152,6 +158,17 @@ variable "container_name" {
   description = "Name of the container"
   type        = string
   default     = "app"
+}
+
+variable "gpu_count" {
+  description = "Number of GPUs to request for the container via resourceRequirements. 0 emits no GPU requirement. Requires ecs_launch_type = \"EC2\" on a GPU-capable instance; Fargate does not support GPUs. Applies to the module's initial task-definition revision only — the CI-managed task definition owns this for an existing service."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.gpu_count >= 0
+    error_message = "gpu_count must be >= 0."
+  }
 }
 
 variable "container_image" {
@@ -344,6 +361,8 @@ variable "ecr" {
     create_repo         = optional(bool, false)
     repo_name           = optional(string, "")
     mutability          = optional(string, "MUTABLE")
+    scan_on_push        = optional(bool, true)
+    kms_key_id          = optional(string, "") # KMS key ARN. Empty uses AES256. Setting this replaces the repository.
     untagged_ttl_days   = optional(number, 7)
     tagged_ttl_days     = optional(number, 7)
     protected_prefixes  = optional(list(string), ["main", "master"])
