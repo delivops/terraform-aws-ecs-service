@@ -2,36 +2,60 @@
 
 # AWS ECS Service Terraform Module
 
-This Terraform module deploys an ECS service on AWS Fargate with support for load balancing, auto-scaling, and custom deployment configurations.
+This Terraform module deploys an ECS service on Fargate or EC2, with support for load balancing, auto-scaling, and custom deployment configurations.
 
 ## Features
 
-- Creates an ECS service with Fargate launch type
+- Creates an ECS service with the Fargate or EC2 launch type
 - Configurable load balancer target group with health checks
 - Support for host-based and path-based routing rules
 - Auto-scaling capabilities:
   - CPU and Memory utilization-based scaling
   - **Advanced SQS-based autoscaling with latency-first approach**
   - Scheduled scaling
-- CloudWatch logging integration
+- CloudWatch logging integration, with optional KMS encryption
+- Separate task and execution roles, published to SSM for a deploy pipeline
 - Deployment circuit breaker and CloudWatch alarms integration
 - Route53 DNS record management (other providers, e.g. Cloudflare, can be wired via the `load_balancer` output)
-- ARM64 architecture support
 
 ## Resources Created
 
-- ECS Service with Fargate launch type
-- ECS Task Definition
+- ECS Service (Fargate or EC2)
+- ECS Task Definition (initial revision only — see below)
 - Application/Network Load Balancer Target Group (optional)
 - Load Balancer Listener Rules (host-based and path-based)
 - CloudWatch Log Group
 - Auto Scaling Target and Policies
 - CloudWatch Alarms (optional)
+- ECR Repository (optional)
+- IAM role (optional)
 - Route53 DNS Records (optional)
+
+## The initial task definition is write-once
+
+The module registers a task definition to bootstrap the service, then steps out
+of the way: `aws_ecs_task_definition` carries `lifecycle { ignore_changes = all }`
+and the service ignores `task_definition` changes, so the running revision is
+owned by your deploy pipeline.
+
+The practical consequence is that these inputs only affect the **first**
+revision. On an existing service, changing them produces a clean plan and no
+actual change — update them in the pipeline that registers the task definition:
+
+| Input | Owned afterwards by |
+|---|---|
+| `ecs_task_cpu`, `ecs_task_memory` | CI task definition |
+| `container_name`, `container_image` | CI task definition |
+| `network_mode` | CI task definition (also selects target group `target_type`) |
+| `task_role_arn`, `execution_role_arn` | CI, via the SSM parameters below |
+
+Inputs on the *service* — load balancer wiring, Service Connect, placement,
+deployment settings — reconcile normally. The exception is `desired_count`,
+which is also ignored so an external autoscaler can own the running count.
 
 ## Usage
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (without ALB)
@@ -39,7 +63,7 @@ This Terraform module deploys an ECS service on AWS Fargate with support for loa
 
 module "demo_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 2.1"
 
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "demo"
@@ -50,7 +74,7 @@ module "demo_ecs_service" {
 }
 ```
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (with ALB)
@@ -58,7 +82,7 @@ module "demo_ecs_service" {
 
 module "alb_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 2.1"
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "alb"
   vpc_id             = var.vpc_id
@@ -76,7 +100,7 @@ module "alb_ecs_service" {
 }
 ```
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (with ALB and Route53 DNS)
@@ -84,7 +108,7 @@ module "alb_ecs_service" {
 
 module "alb_ecs_service_with_route53" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 2.1"
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "route53-demo"
   vpc_id             = var.vpc_id
@@ -103,7 +127,7 @@ module "alb_ecs_service_with_route53" {
 }
 ```
 
-```python
+```hcl
 
 ################################################################################
 # AWS ECS-SERVICE (with ALB, DNS managed in Cloudflare outside the module)
@@ -111,7 +135,7 @@ module "alb_ecs_service_with_route53" {
 
 module "alb_ecs_service" {
   source  = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 2.1"
   ecs_cluster_name   = var.cluster_name
   ecs_service_name   = "cloudflare-demo"
   vpc_id             = var.vpc_id
@@ -251,7 +275,7 @@ Minimal configuration with opinionated defaults:
 ```hcl
 module "queue_processor" {
   source = "delivops/ecs-service/aws"
-  version = "xxx"
+  version = "~> 2.1"
 
   ecs_cluster_name   = "my-cluster"
   ecs_service_name   = "image-processor"
@@ -432,14 +456,14 @@ This module is released under the MIT License.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_additional_load_balancers"></a> [additional\_load\_balancers](#input\_additional\_load\_balancers) | Additional load balancers configuration | <pre>list(object({<br/>    enabled                          = optional(bool, false)<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    nlb_arn                          = optional(string, "")<br/>    nlb_port                         = optional(number, 80)<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 10)<br/>    health_check_threshold_healthy   = optional(number, 2)<br/>    health_check_threshold_unhealthy = optional(number, 5)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>    health_check_port                = optional(string, "traffic-port")<br/>    stickiness                       = optional(bool, false)<br/>    stickiness_ttl                   = optional(number, 300)<br/>    stickiness_type                  = optional(string, "app_cookie")<br/>    cookie_name                      = optional(string, "")<br/>    action_type                      = optional(string, "forward")<br/>    target_group_name                = optional(string, "")<br/>    deregister_deregistration_delay  = optional(number, 60)<br/>    route_53_host_zone_id            = optional(string, "")<br/>  }))</pre> | `[]` | no |
-| <a name="input_application_load_balancer"></a> [application\_load\_balancer](#input\_application\_load\_balancer) | alb | <pre>object({<br/>    enabled                          = optional(bool, false)<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    nlb_arn                          = optional(string, "")<br/>    nlb_port                         = optional(number, 80)<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 10)<br/>    health_check_threshold_healthy   = optional(number, 2)<br/>    health_check_threshold_unhealthy = optional(number, 5)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>    health_check_port                = optional(string, "traffic-port")<br/>    stickiness                       = optional(bool, false)<br/>    stickiness_ttl                   = optional(number, 300)<br/>    cookie_name                      = optional(string, "")<br/>    stickiness_type                  = optional(string, "app_cookie")<br/>    action_type                      = optional(string, "forward")<br/>    target_group_name                = optional(string, "")<br/>    deregister_deregistration_delay  = optional(number, 60)<br/>    route_53_host_zone_id            = optional(string, "")<br/>  })</pre> | `{}` | no |
+| <a name="input_application_load_balancer"></a> [application\_load\_balancer](#input\_application\_load\_balancer) | Primary load balancer for the service: target group, health checks, listener rule (host/path routing or fixed-response), stickiness, and an optional Route53 alias record. Set enabled = true to attach the service to an existing ALB listener, or protocol = "TCP" with nlb\_arn to have the module create an NLB listener. | <pre>object({<br/>    enabled                          = optional(bool, false)<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    nlb_arn                          = optional(string, "")<br/>    nlb_port                         = optional(number, 80)<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 10)<br/>    health_check_threshold_healthy   = optional(number, 2)<br/>    health_check_threshold_unhealthy = optional(number, 5)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>    health_check_port                = optional(string, "traffic-port")<br/>    stickiness                       = optional(bool, false)<br/>    stickiness_ttl                   = optional(number, 300)<br/>    cookie_name                      = optional(string, "")<br/>    stickiness_type                  = optional(string, "app_cookie")<br/>    action_type                      = optional(string, "forward")<br/>    target_group_name                = optional(string, "")<br/>    deregister_deregistration_delay  = optional(number, 60)<br/>    route_53_host_zone_id            = optional(string, "")<br/>  })</pre> | `{}` | no |
 | <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Assign public IP to ECS tasks | `bool` | `false` | no |
-| <a name="input_capacity_provider_strategy"></a> [capacity\_provider\_strategy](#input\_capacity\_provider\_strategy) | name of the capacity | `string` | `""` | no |
+| <a name="input_capacity_provider_strategy"></a> [capacity\_provider\_strategy](#input\_capacity\_provider\_strategy) | Name of an existing ECS capacity provider for the service. When set, the service uses it instead of a plain launch\_type. Leave empty to use ecs\_launch\_type directly. | `string` | `""` | no |
 | <a name="input_container_image"></a> [container\_image](#input\_container\_image) | Docker image for the container | `string` | `"nginx:latest"` | no |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | Name of the container | `string` | `"app"` | no |
 | <a name="input_cpu_auto_scaling"></a> [cpu\_auto\_scaling](#input\_cpu\_auto\_scaling) | value for auto scaling | <pre>object({<br/>    enabled            = optional(bool, false)<br/>    min_replicas       = optional(number, 0)<br/>    max_replicas       = optional(number, 1)<br/>    scale_in_cooldown  = optional(number, 300)<br/>    scale_out_cooldown = optional(number, 300)<br/>    target_value       = optional(number, 70)<br/>  })</pre> | `{}` | no |
 | <a name="input_deployment"></a> [deployment](#input\_deployment) | Deployment configuration for the ECS service | <pre>object({<br/>    min_healthy_percent       = optional(number, 100)<br/>    max_healthy_percent       = optional(number, 200)<br/>    circuit_breaker_enabled   = optional(bool, true)<br/>    rollback_enabled          = optional(bool, true)<br/>    cloudwatch_alarm_enabled  = optional(bool, false)<br/>    cloudwatch_alarm_rollback = optional(bool, true)<br/>    cloudwatch_alarm_names    = optional(list(string), [])<br/>  })</pre> | `{}` | no |
-| <a name="input_desired_count"></a> [desired\_count](#input\_desired\_count) | Desired number of tasks | `number` | `1` | no |
+| <a name="input_desired_count"></a> [desired\_count](#input\_desired\_count) | Number of tasks at service creation. Not reconciled afterwards — desired\_count is in the service's ignore\_changes, so an autoscaler or deploy pipeline can own the running count without Terraform reverting it. | `number` | `1` | no |
 | <a name="input_ecr"></a> [ecr](#input\_ecr) | ECR repository configuration | <pre>object({<br/>    create_repo         = optional(bool, false)<br/>    repo_name           = optional(string, "")<br/>    mutability          = optional(string, "MUTABLE")<br/>    scan_on_push        = optional(bool, true)<br/>    kms_key_id          = optional(string, "") # KMS key ARN. Empty uses AES256. Setting this replaces the repository.<br/>    untagged_ttl_days   = optional(number, 7)<br/>    tagged_ttl_days     = optional(number, 7)<br/>    protected_prefixes  = optional(list(string), ["main", "master"])<br/>    protected_retention = optional(number, 999999) # Keep nearly forever<br/>    versioned_prefixes  = optional(list(string), ["v", "sha"])<br/>    versioned_retention = optional(number, 30) # How many versioned tags to keep<br/>  })</pre> | `{}` | no |
 | <a name="input_ecs_cluster_name"></a> [ecs\_cluster\_name](#input\_ecs\_cluster\_name) | Name of the ECS cluster | `string` | n/a | yes |
 | <a name="input_ecs_launch_type"></a> [ecs\_launch\_type](#input\_ecs\_launch\_type) | Launch type for the ECS service (FARGATE or EC2) | `string` | `"FARGATE"` | no |
@@ -459,7 +483,7 @@ This module is released under the MIT License.
 | <a name="input_role"></a> [role](#input\_role) | Optionally create a dedicated IAM role for this service, assumable only by the ECS tasks service (ecs-tasks.amazonaws.com). When create = true, the role's ARN becomes the default for both task\_role\_arn and execution\_role\_arn, so initial\_role need not be set. | <pre>object({<br/>    create                  = optional(bool, false)      # Create the role. Default off.<br/>    name                    = optional(string, "")       # Role name. Defaults to "<cluster>_<service>".<br/>    inline_policy           = optional(string, "")       # Inline IAM policy document (JSON, e.g. jsonencode({...})).<br/>    attach_policies         = optional(list(string), []) # Managed policy ARNs to attach.<br/>    attach_execution_policy = optional(bool, false)      # Attach AmazonECSTaskExecutionRolePolicy.<br/>  })</pre> | `{}` | no |
 | <a name="input_schedule_auto_scaling"></a> [schedule\_auto\_scaling](#input\_schedule\_auto\_scaling) | Scheduled auto scaling configuration | <pre>object({<br/>    enabled = optional(bool, false)<br/>    schedules = optional(list(object({<br/>      schedule_name       = optional(string, "")<br/>      min_replicas        = optional(number, 0)<br/>      max_replicas        = optional(number, 1)<br/>      schedule_expression = optional(string, "cron(0 0 1 * ? *)") # cron expression<br/>      time_zone           = optional(string, "Asia/Jerusalem")<br/>    })), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for the ECS tasks. Required when network\_mode is 'awsvpc'. | `list(string)` | `[]` | no |
-| <a name="input_service_connect"></a> [service\_connect](#input\_service\_connect) | n/a | <pre>object({<br/>    enabled     = optional(bool, false)<br/>    type        = optional(string, "client-only")<br/>    port        = optional(number, 80)<br/>    name        = optional(string, "service")<br/>    timeout     = optional(number, 15)<br/>    appProtocol = optional(string, "http")<br/>    additional_ports = optional(list(object({<br/>      name        = string<br/>      port        = number<br/>      appProtocol = optional(string, "http")<br/>    })), [])<br/>  })</pre> | `{}` | no |
+| <a name="input_service_connect"></a> [service\_connect](#input\_service\_connect) | ECS Service Connect configuration. type = client-only joins the namespace as a client; client-server also advertises this service (default port plus optional additional\_ports) for discovery by other services. The namespace is assumed to share the cluster name. | <pre>object({<br/>    enabled     = optional(bool, false)<br/>    type        = optional(string, "client-only")<br/>    port        = optional(number, 80)<br/>    name        = optional(string, "service")<br/>    timeout     = optional(number, 15)<br/>    appProtocol = optional(string, "http")<br/>    additional_ports = optional(list(object({<br/>      name        = string<br/>      port        = number<br/>      appProtocol = optional(string, "http")<br/>    })), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_sqs_autoscaling"></a> [sqs\_autoscaling](#input\_sqs\_autoscaling) | Opinionated SQS autoscaling config for this ECS service. | <pre>object({<br/>    enabled = optional(bool, false)<br/><br/>    # Queue names — either set queue_name for both directions, or set each explicitly<br/>    queue_name           = optional(string)<br/>    scale_out_queue_name = optional(string)<br/>    scale_in_queue_name  = optional(string)<br/><br/>    # Capacity guardrails (required when enabled)<br/>    min_replicas = optional(number)<br/>    max_replicas = optional(number)<br/><br/>    # SLA thresholds for AgeOfOldestMessage (seconds)<br/>    scale_out_age_seconds = optional(number)<br/>    scale_in_age_seconds  = optional(number)<br/><br/>    # Scale-in behavior (defaults baked in)<br/>    # If true, requires queue to be completely empty before scaling in (more stable)<br/>    # If false (default), scales in based on age alone (more cost-efficient)<br/>    require_empty_for_scale_in = optional(bool)<br/>    empty_eval_periods         = optional(number)<br/>    empty_period_seconds       = optional(number)<br/><br/>    # Step ladders (scale-out proportional)<br/>    scale_out_steps = optional(list(object({<br/>      lower  = number<br/>      upper  = optional(number)<br/>      change = number<br/>    })))<br/><br/>    # Scale-in step size (gentle shrink)<br/>    scale_in_step = optional(number)<br/><br/>    # Cooldowns (override if needed)<br/>    scale_out_cooldown = optional(number)<br/>    scale_in_cooldown  = optional(number)<br/><br/>    # Smoothing for Age via metric math (simple SMA on 60s periods). 0 disables.<br/>    age_sma_points = optional(number)<br/><br/>    # Aggregation & missing data behavior<br/>    aggregation_type_out = optional(string)<br/>    aggregation_type_in  = optional(string)<br/>    treat_missing_out    = optional(string)<br/>    treat_missing_in     = optional(string)<br/>  })</pre> | `{}` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Subnet IDs for the ECS tasks. Required when network\_mode is 'awsvpc'. | `list(string)` | `[]` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to add to all resources | `map(string)` | `{}` | no |
