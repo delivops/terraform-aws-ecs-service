@@ -132,15 +132,33 @@ locals {
   alb_port = local.use_alb ? floor(var.application_load_balancer.container_port + 0) : 0
   sc_port  = local.use_service_connect ? floor(var.service_connect.port + 0) : 0
 
-  # Build port mappings as JSON string directly
-  port_mappings_json = local.use_alb ? "[{\"name\":\"default\",\"containerPort\":${local.alb_port},\"hostPort\":${local.alb_port},\"protocol\":\"tcp\",\"appProtocol\":\"http\"}]" : (
-    local.use_service_connect ? (
-      lookup(var.service_connect, "appProtocol", "http") == "http" ?
-      "[{\"name\":\"default\",\"containerPort\":${local.sc_port},\"hostPort\":${local.sc_port},\"protocol\":\"tcp\",\"appProtocol\":\"http\"}]" :
-      "[{\"name\":\"default\",\"containerPort\":${local.sc_port},\"hostPort\":${local.sc_port},\"protocol\":\"tcp\"}]"
-    ) : "[]"
-  )
+  # Effective container port, and whether to advertise appProtocol = http.
+  # Service Connect with appProtocol = "tcp" omits appProtocol from the mapping.
+  container_port     = local.use_alb ? local.alb_port : (local.use_service_connect ? local.sc_port : 0)
+  include_http_proto = local.use_alb || (local.use_service_connect && var.service_connect.appProtocol == "http")
 
-  # Build the complete container definition as JSON string
-  container_definitions_json = "[{\"name\":\"${var.container_name}\",\"image\":\"${var.container_image}\",\"essential\":true,\"portMappings\":${local.port_mappings_json}}]"
+  port_mappings = (local.use_alb || local.use_service_connect) ? [
+    merge(
+      {
+        name          = "default"
+        containerPort = local.container_port
+        hostPort      = local.container_port
+        protocol      = "tcp"
+      },
+      local.include_http_proto ? { appProtocol = "http" } : {}
+    )
+  ] : []
+
+  # jsonencode rather than a hand-built string, so characters that are special
+  # in JSON are escaped correctly in container_name and container_image.
+  container_definitions = [
+    {
+      name         = var.container_name
+      image        = var.container_image
+      essential    = true
+      portMappings = local.port_mappings
+    }
+  ]
+
+  container_definitions_json = jsonencode(local.container_definitions)
 }
