@@ -29,6 +29,64 @@ locals {
   has_task_role      = var.task_role_arn != "" || local.has_shared_role
   has_execution_role = var.execution_role_arn != "" || local.has_shared_role
 
+  # Target group target type must match the task network mode: awsvpc tasks get
+  # their own ENI and register by IP, whereas bridge/host tasks share the
+  # instance's network stack and register by instance id. Fargate is always
+  # awsvpc (enforced in variables.tf), so this only ever differs for EC2.
+  target_group_target_type = var.network_mode == "awsvpc" ? "ip" : "instance"
+
+  # Load balancer ARN resolution.
+  #
+  # Two shapes are supported and they carry the ARN differently:
+  #   HTTP (ALB) — the caller passes a *listener* ARN; the load balancer ARN is
+  #                derived from it by stripping the listener suffix.
+  #   TCP  (NLB) — the caller passes nlb_arn directly, because the module
+  #                creates the listener itself (aws_lb_listener.tcp_listener)
+  #                and so there is no caller-supplied listener ARN to derive from.
+  #
+  # regexall() rather than regex(): these locals are evaluated unconditionally,
+  # and regex() raises an error when the string does not match (e.g. when
+  # listener_arn is ""), whereas regexall() simply returns [].
+  listener_arn_pattern = "^(.+)/[^/]+$"
+
+  main_lb_arn_from_listener = length(regexall(local.listener_arn_pattern, var.application_load_balancer.listener_arn)) > 0 ? replace(
+    regexall(local.listener_arn_pattern, var.application_load_balancer.listener_arn)[0][0],
+    ":listener/", ":loadbalancer/"
+  ) : ""
+
+  main_lb_arn = var.application_load_balancer.protocol == "TCP" ? var.application_load_balancer.nlb_arn : local.main_lb_arn_from_listener
+
+  additional_lb_arns = {
+    for idx, alb in var.additional_load_balancers : idx => (
+      alb.protocol == "TCP" ? alb.nlb_arn : (
+        length(regexall(local.listener_arn_pattern, alb.listener_arn)) > 0 ? replace(
+          regexall(local.listener_arn_pattern, alb.listener_arn)[0][0],
+          ":listener/", ":loadbalancer/"
+        ) : ""
+      )
+    )
+  }
+
+  # Additional load balancers whose ARN could actually be resolved. Used as the
+  # for_each of the aws_lb data source so that its keys and the keys of every
+  # consumer stay in lockstep.
+  additional_lb_arns_resolved = {
+    for idx, alb in var.additional_load_balancers : idx => local.additional_lb_arns[idx]
+    if alb.enabled && local.additional_lb_arns[idx] != ""
+  }
+
+  # A Route53 alias record needs the load balancer's dns_name/zone_id, which
+  # come from the aws_lb data source — so the record can only be created when
+  # that data source exists. Guarding on the resolved ARN (rather than on
+  # listener_arn alone) keeps the record and the data source in agreement for
+  # the NLB path too.
+  create_main_route53_record = (
+    var.application_load_balancer.enabled &&
+    var.application_load_balancer.route_53_host_zone_id != "" &&
+    var.application_load_balancer.host != "" &&
+    local.main_lb_arn != ""
+  )
+
   # Target group naming logic with 32-char safety
   main_target_group_name = var.application_load_balancer.target_group_name != "" ? var.application_load_balancer.target_group_name : replace(
     "${substr(var.ecs_service_name, 0, 20)}-${substr(md5("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}"), 0, 5)}-tg",

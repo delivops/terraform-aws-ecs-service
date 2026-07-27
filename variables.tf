@@ -144,19 +144,19 @@ variable "enable_execute_command" {
 }
 
 variable "ecs_task_cpu" {
-  description = "CPU units for the ECS task"
+  description = "CPU units for the ECS task. Applies only to the module's INITIAL task-definition revision (the task definition has ignore_changes = all); for an existing service the CI-managed task definition owns this value."
   type        = number
   default     = 256
 }
 
 variable "ecs_task_memory" {
-  description = "Memory for the ECS task in MiB"
+  description = "Memory for the ECS task in MiB. Applies only to the module's INITIAL task-definition revision (the task definition has ignore_changes = all); for an existing service the CI-managed task definition owns this value."
   type        = number
   default     = 512
 }
 
 variable "container_name" {
-  description = "Name of the container"
+  description = "Name of the container. Applies only to the module's INITIAL task-definition revision (the task definition has ignore_changes = all); for an existing service the CI-managed task definition owns this value."
   type        = string
   default     = "app"
 }
@@ -178,7 +178,7 @@ variable "gpu_count" {
 }
 
 variable "container_image" {
-  description = "Docker image for the container"
+  description = "Docker image for the container. Applies only to the module's INITIAL task-definition revision (the task definition has ignore_changes = all); for an existing service the CI-managed task definition owns this value."
   type        = string
   default     = "nginx:latest"
 }
@@ -201,7 +201,7 @@ variable "ecs_launch_type" {
 }
 
 variable "network_mode" {
-  description = "Network mode for the ECS task definition. Fargate requires 'awsvpc'. EC2 supports 'awsvpc', 'bridge', 'host', or 'none'."
+  description = "Network mode for the ECS task definition. Fargate requires 'awsvpc'. EC2 supports 'awsvpc', 'bridge', 'host', or 'none'. Applies only to the module's INITIAL task-definition revision (the task definition has ignore_changes = all); for an existing service the CI-managed task definition owns this value. Also selects the ALB target group target_type (awsvpc = ip, otherwise instance)."
   type        = string
   default     = "awsvpc"
 

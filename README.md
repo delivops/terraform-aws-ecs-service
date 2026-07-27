@@ -233,12 +233,35 @@ resource "cloudflare_record" "api" {
 }
 ```
 
+## The initial task definition is write-once
+
+The module creates a task definition to bootstrap the service, then steps out of
+the way: `aws_ecs_task_definition` carries `lifecycle { ignore_changes = all }`
+and the service ignores `task_definition` changes, so the real revision is owned
+by your deploy pipeline (e.g. `delivops/ecs-deploy-action`).
+
+The practical consequence: these inputs only affect the **first** revision. On an
+existing service, changing them produces a clean plan and no actual change —
+update them in the pipeline that registers the task definition instead.
+
+| Input | Owned afterward by |
+|---|---|
+| `ecs_task_cpu`, `ecs_task_memory` | CI task definition |
+| `container_name`, `container_image` | CI task definition |
+| `gpu_count` (`resourceRequirements`) | CI task definition |
+| `network_mode` | CI task definition (also selects target group `target_type`) |
+| `task_role_arn`, `execution_role_arn` | CI, via the SSM parameters above |
+
+Inputs on the *service* (`desired_count`, ALB wiring, Service Connect, placement,
+deployment settings) are unaffected and reconcile normally — except
+`desired_count`, which is deliberately ignored so an external autoscaler owns it.
+
 ## Notes
 
 - Task CPU and memory default to 256 units / 512 MiB and are configurable via `ecs_task_cpu` and `ecs_task_memory`
 - The default container image is `nginx:latest` (override with `container_image`)
 - The module ignores changes to the task definition to support external (CI-managed) deployments
-- If you work with load balancer from type NLB, you should create it yourself (not with terraform), and also to put the target_group_protocol and health_check_protocol to "TCP".
+- If you work with load balancer from type NLB, you should create it yourself (not with terraform), and also to put the target_group_protocol and health_check_protocol to "TCP". Pass its ARN as `nlb_arn` and set `protocol = "TCP"`; the module creates the listener and can still manage the Route53 alias record for it.
 
 ## License
 

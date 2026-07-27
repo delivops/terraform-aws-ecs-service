@@ -22,7 +22,7 @@ resource "aws_alb_target_group" "target_group" {
   port                 = var.application_load_balancer.container_port
   protocol             = var.application_load_balancer.protocol
   vpc_id               = var.vpc_id
-  target_type          = "ip"
+  target_type          = local.target_group_target_type
   deregistration_delay = var.application_load_balancer.deregister_deregistration_delay
 
   dynamic "stickiness" {
@@ -59,7 +59,7 @@ resource "aws_alb_target_group" "target_group_additional" {
   port                 = each.value.container_port
   protocol             = each.value.protocol
   vpc_id               = var.vpc_id
-  target_type          = "ip"
+  target_type          = local.target_group_target_type
   deregistration_delay = each.value.deregister_deregistration_delay
 
   dynamic "stickiness" {
@@ -105,8 +105,8 @@ resource "aws_lb_listener_rule" "rule" {
         }
 
         stickiness {
-          enabled  = lookup(var.application_load_balancer, "stickiness", false)
-          duration = lookup(var.application_load_balancer, "stickiness_ttl", 300)
+          enabled  = var.application_load_balancer.stickiness
+          duration = var.application_load_balancer.stickiness_ttl
         }
       }
     }
@@ -166,8 +166,8 @@ resource "aws_lb_listener_rule" "rule_additional" {
         }
 
         stickiness {
-          enabled  = lookup(each.value, "stickiness", false)
-          duration = lookup(each.value, "stickiness_ttl", 300)
+          enabled  = each.value.stickiness
+          duration = each.value.stickiness_ttl
         }
       }
     }
@@ -277,7 +277,7 @@ resource "aws_ecs_service" "ecs_service" {
   launch_type            = var.capacity_provider_strategy == "" ? var.ecs_launch_type : null
   scheduling_strategy    = "REPLICA"
   propagate_tags         = "SERVICE"
-  platform_version       = var.ecs_launch_type == "FARGATE" ? "LATEST" : ""
+  platform_version       = var.ecs_launch_type == "FARGATE" ? "LATEST" : null
   deployment_controller {
     type = "ECS"
   }
@@ -373,6 +373,12 @@ resource "aws_ecs_service" "ecs_service" {
         }
       }
 
+      # Additional ports are advertised under the SAME dns_name as the default
+      # port, distinguished only by port number — a client alias is a
+      # (dns_name, port) pair, so "<service-name>:<port>" resolves each one.
+      # discovery_name must still be unique per service, hence the suffix.
+      # Changing dns_name here would change the hostname clients dial, so it is
+      # deliberately left as the bare service name.
       dynamic "service" {
         for_each = var.service_connect.type == "client-server" && length(var.service_connect.additional_ports) > 0 ? var.service_connect.additional_ports : []
         content {
@@ -492,7 +498,7 @@ module "ecr" {
 
 # Route 53 record for main ALB
 resource "aws_route53_record" "main_alb_record" {
-  count   = var.application_load_balancer.enabled && var.application_load_balancer.route_53_host_zone_id != "" && var.application_load_balancer.host != "" ? 1 : 0
+  count   = local.create_main_route53_record ? 1 : 0
   zone_id = var.application_load_balancer.route_53_host_zone_id
   name    = var.application_load_balancer.host
   type    = "A"
@@ -508,7 +514,7 @@ resource "aws_route53_record" "main_alb_record" {
 resource "aws_route53_record" "additional_alb_records" {
   for_each = {
     for idx, alb in var.additional_load_balancers : idx => alb
-    if alb.enabled && alb.route_53_host_zone_id != "" && alb.host != ""
+    if alb.enabled && alb.route_53_host_zone_id != "" && alb.host != "" && local.additional_lb_arns[idx] != ""
   }
 
   zone_id = each.value.route_53_host_zone_id

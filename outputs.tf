@@ -36,7 +36,7 @@ output "ssm_execution_role_parameter_name" {
 output "route53_records" {
   description = "Route53 DNS records created"
   value = {
-    main_record = var.application_load_balancer.enabled && var.application_load_balancer.route_53_host_zone_id != "" && var.application_load_balancer.host != "" ? {
+    main_record = local.create_main_route53_record ? {
       name    = aws_route53_record.main_alb_record[0].name
       fqdn    = aws_route53_record.main_alb_record[0].fqdn
       zone_id = aws_route53_record.main_alb_record[0].zone_id
@@ -54,7 +54,7 @@ output "route53_records" {
 output "load_balancer" {
   description = "DNS details of the ALB(s) fronting the service. Use these (e.g. dns_name) to create DNS records such as Cloudflare CNAMEs outside this module."
   value = {
-    main = var.application_load_balancer.enabled && var.application_load_balancer.listener_arn != "" ? {
+    main = var.application_load_balancer.enabled && local.main_lb_arn != "" ? {
       dns_name = data.aws_lb.main_alb[0].dns_name
       zone_id  = data.aws_lb.main_alb[0].zone_id
       host     = var.application_load_balancer.host
@@ -65,7 +65,7 @@ output "load_balancer" {
         zone_id  = data.aws_lb.additional_albs[idx].zone_id
         host     = alb.host
       }
-      if alb.enabled && alb.listener_arn != ""
+      if alb.enabled && local.additional_lb_arns[idx] != ""
     }
   }
 }

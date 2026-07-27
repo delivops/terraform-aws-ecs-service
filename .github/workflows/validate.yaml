@@ -1,0 +1,44 @@
+name: Terraform validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          # Must stay >= the required_version in versions.tf.
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+
+      # Each root is validated separately: the module itself, and the two
+      # example roots (examples/ and examples/gpu/ are independent).
+      - name: Validate module
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: Validate examples
+        working-directory: examples
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: Validate examples/gpu
+        working-directory: examples/gpu
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
