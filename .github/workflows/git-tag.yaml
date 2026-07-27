@@ -5,6 +5,7 @@ on:
       - main
     paths-ignore:
       - 'README.md'
+      - 'CLAUDE.md'
       - '.github/**'
       - 'examples/**'         
 permissions:
