@@ -418,6 +418,28 @@ variable "initial_role" {
   default     = ""
 }
 
+variable "task_role_arn" {
+  description = "ARN of the IAM role the container assumes (application permissions). Overrides the shared role from role.create/initial_role. Also published to SSM at /ecs/<cluster>/<service>/task-role."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.task_role_arn == "" || startswith(var.task_role_arn, "arn:")
+    error_message = "task_role_arn must be a full IAM role ARN, not a role name."
+  }
+}
+
+variable "execution_role_arn" {
+  description = "ARN of the IAM role the ECS agent assumes to start the task (ECR pull, log write, secret fetch). Overrides the shared role from role.create/initial_role. Also published to SSM at /ecs/<cluster>/<service>/execution-role."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.execution_role_arn == "" || startswith(var.execution_role_arn, "arn:")
+    error_message = "execution_role_arn must be a full IAM role ARN, not a role name."
+  }
+}
+
 variable "role" {
   description = "Optionally create a dedicated IAM role for this service, assumable only by the ECS tasks service (ecs-tasks.amazonaws.com). When create = true, the role's ARN becomes the default for both task_role_arn and execution_role_arn, so initial_role need not be set."
   type = object({

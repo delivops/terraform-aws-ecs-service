@@ -19,9 +19,14 @@ output "service_role_name" {
   value       = var.role.create ? aws_iam_role.this[0].name : null
 }
 
-output "ssm_role_parameter_name" {
-  description = "Name of the SSM parameter holding the service role ARN (null when no role exists)."
-  value       = length(aws_ssm_parameter.role) > 0 ? aws_ssm_parameter.role[0].name : null
+output "ssm_task_role_parameter_name" {
+  description = "Name of the SSM parameter holding the task role ARN (null when no task role exists)."
+  value       = length(aws_ssm_parameter.task_role) > 0 ? aws_ssm_parameter.task_role[0].name : null
+}
+
+output "ssm_execution_role_parameter_name" {
+  description = "Name of the SSM parameter holding the execution role ARN (null when no execution role exists)."
+  value       = length(aws_ssm_parameter.execution_role) > 0 ? aws_ssm_parameter.execution_role[0].name : null
 }
 
 output "route53_records" {
