@@ -361,7 +361,10 @@ variable "role" {
     name                    = optional(string, "")       # Role name. Defaults to "<cluster>_<service>".
     inline_policy           = optional(string, "")       # Inline IAM policy document (JSON, e.g. jsonencode({...})).
     attach_policies         = optional(list(string), []) # Managed policy ARNs to attach.
-    attach_execution_policy = optional(bool, false)      # Attach AmazonECSTaskExecutionRolePolicy.
+    attach_execution_policy = optional(bool, true)       # Attach AmazonECSTaskExecutionRolePolicy. On by default:
+    #   the created role is used as the execution role, which cannot pull from
+    #   ECR or write logs without it. Set false only when supplying a separate
+    #   execution_role_arn.
   })
   default = {}
 }

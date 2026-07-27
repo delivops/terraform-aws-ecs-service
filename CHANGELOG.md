@@ -27,6 +27,13 @@ the release workflow are [semantic versions](https://semver.org/).
   `network_mode = "awsvpc"` and empty `subnet_ids`/`security_group_ids` used to
   apply and now hard-fails at plan (Fargate also requires `awsvpc`). Correct, but
   a previously-"passing" invalid config will now error.
+- **`role.attach_execution_policy` now defaults to `true`** (was `false`). The
+  module uses the role it creates as the *execution* role, and without
+  `AmazonECSTaskExecutionRolePolicy` that role cannot pull from ECR or write
+  logs — tasks fail to start with `CannotPullContainerError`. On an existing
+  stack this attaches the managed policy to the module-created role on the next
+  apply (an added permission, no replacement). Set it to `false` when you supply
+  a separate `execution_role_arn`.
 - **ALB/NLB target groups now set `target_type` from `network_mode`**
   (`awsvpc` → `ip`, `bridge`/`host` → `instance`) instead of always `ip`. For
   every `awsvpc` service — which is all Fargate services and the module default
