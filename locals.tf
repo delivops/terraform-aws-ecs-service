@@ -25,6 +25,47 @@ locals {
     var.network_mode != "awsvpc" || (length(var.subnet_ids) > 0 && length(var.security_group_ids) > 0)
   ) ? true : tobool("subnet_ids and security_group_ids are required when network_mode is 'awsvpc'")
 
+  # HTTP callers pass a listener ARN, from which the load balancer ARN is
+  # derived. TCP callers pass nlb_arn directly, because the module creates the
+  # listener itself and there is no caller-supplied listener ARN to derive from.
+  # regexall rather than regex: this is evaluated unconditionally, and regex
+  # raises an error when listener_arn is "".
+  listener_arn_pattern = "^(.+)/[^/]+$"
+
+  main_lb_arn_from_listener = length(regexall(local.listener_arn_pattern, var.application_load_balancer.listener_arn)) > 0 ? replace(
+    regexall(local.listener_arn_pattern, var.application_load_balancer.listener_arn)[0][0],
+    ":listener/", ":loadbalancer/"
+  ) : ""
+
+  main_lb_arn = var.application_load_balancer.protocol == "TCP" ? var.application_load_balancer.nlb_arn : local.main_lb_arn_from_listener
+
+  additional_lb_arns = {
+    for idx, alb in var.additional_load_balancers : idx => (
+      alb.protocol == "TCP" ? alb.nlb_arn : (
+        length(regexall(local.listener_arn_pattern, alb.listener_arn)) > 0 ? replace(
+          regexall(local.listener_arn_pattern, alb.listener_arn)[0][0],
+          ":listener/", ":loadbalancer/"
+        ) : ""
+      )
+    )
+  }
+
+  # Drives the aws_lb data source's for_each, so its keys and every consumer's
+  # keys stay in lockstep.
+  additional_lb_arns_resolved = {
+    for idx, alb in var.additional_load_balancers : idx => local.additional_lb_arns[idx]
+    if alb.enabled && local.additional_lb_arns[idx] != ""
+  }
+
+  # An alias record needs dns_name/zone_id from the aws_lb data source, so it can
+  # only be created where that data source exists.
+  create_main_route53_record = (
+    var.application_load_balancer.enabled &&
+    var.application_load_balancer.route_53_host_zone_id != "" &&
+    var.application_load_balancer.host != "" &&
+    local.main_lb_arn != ""
+  )
+
   # Target group naming logic with 32-char safety
   main_target_group_name = var.application_load_balancer.target_group_name != "" ? var.application_load_balancer.target_group_name : replace(
     "${substr(var.ecs_service_name, 0, 20)}-${substr(md5("${data.aws_ecs_cluster.ecs_cluster.cluster_name}-${var.ecs_service_name}"), 0, 5)}-tg",
