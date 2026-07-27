@@ -13,7 +13,7 @@
 # /ecs/<cluster>/<service>/role — the task/execution role ARN.
 # Skipped when no role is available (role.create = false AND initial_role = "").
 resource "aws_ssm_parameter" "role" {
-  count = local.service_role_arn != null ? 1 : 0
+  count = local.has_service_role ? 1 : 0
 
   name  = "/ecs/${var.ecs_cluster_name}/${var.ecs_service_name}/role"
   type  = "String"
