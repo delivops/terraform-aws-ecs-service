@@ -203,6 +203,52 @@ Manager, add `ssm:GetParameters` / `secretsmanager:GetSecretValue` through
 The effective ARNs are exposed as the `task_role_arn` and `execution_role_arn`
 outputs, and published to SSM (below) for a deploy pipeline.
 
+## ECS Exec
+
+`enable_execute_command = true` requires a task role. ECS refuses to create the
+service without one — on Fargate, where there is no instance role to fall back
+to, the module rejects that combination at plan time:
+
+```
+enable_execute_command on Fargate requires a task role: ...
+```
+
+Supplying a task role satisfies ECS, but not the feature: ECS Exec tunnels
+through SSM Session Manager, and the module attaches nothing granting it. Add
+the permissions yourself:
+
+```hcl
+task_role = {
+  create = true
+  inline_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+```
+
+Without them the service comes up and `execute-command` fails per session with
+`TargetNotConnected`.
+
+If an apply already failed at `CreateService` for a missing task role, adding one
+is not enough on its own. The task definition was registered in the same apply
+and is write-once (above), so the corrected config produces no new revision and
+the retry recreates the service against the same role-less one. Force a new
+revision:
+
+```bash
+terraform apply -replace=module.<name>.aws_ecs_task_definition.task_definition
+```
+
 ## SSM Parameters
 
 The module publishes per-service metadata to SSM Parameter Store so a deploy
@@ -346,7 +392,7 @@ This module is released under the MIT License.
 | <a name="input_ecs_service_name"></a> [ecs\_service\_name](#input\_ecs\_service\_name) | Name of the ECS service | `string` | n/a | yes |
 | <a name="input_ecs_task_cpu"></a> [ecs\_task\_cpu](#input\_ecs\_task\_cpu) | CPU units for the ECS task | `number` | `256` | no |
 | <a name="input_ecs_task_memory"></a> [ecs\_task\_memory](#input\_ecs\_task\_memory) | Memory for the ECS task in MiB | `number` | `512` | no |
-| <a name="input_enable_execute_command"></a> [enable\_execute\_command](#input\_enable\_execute\_command) | Enable execute command | `bool` | `false` | no |
+| <a name="input_enable_execute_command"></a> [enable\_execute\_command](#input\_enable\_execute\_command) | Enable ECS Exec (aws ecs execute-command) on the service. Requires a task role: ECS rejects CreateService without one, and that role needs the ssmmessages permissions ECS Exec runs on — this module attaches no policy granting them. Set on the service rather than the task definition, so unlike the task definition inputs it reconciles normally. | `bool` | `false` | no |
 | <a name="input_execution_role"></a> [execution\_role](#input\_execution\_role) | IAM role the ECS agent assumes to start the task — ECR pull, log write, secret fetch. Either create it here (create = true) or supply an existing one (arn); a single execution role shared across services is a common pattern. When created, AmazonECSTaskExecutionRolePolicy is attached by default, since that policy is the same for every service. It does not cover secrets: add ssm:GetParameters or secretsmanager:GetSecretValue via inline\_policy if the task definition references any. | <pre>object({<br/>    create                  = optional(bool, false)<br/>    arn                     = optional(string, "")<br/>    name                    = optional(string, "")<br/>    inline_policy           = optional(string, "")<br/>    attach_policies         = optional(list(string), [])<br/>    attach_execution_policy = optional(bool, true)<br/>  })</pre> | `{}` | no |
 | <a name="input_log_anomaly_detection"></a> [log\_anomaly\_detection](#input\_log\_anomaly\_detection) | CloudWatch Logs Anomaly Detection configuration | <pre>object({<br/>    enabled                 = optional(bool, false)<br/>    evaluation_frequency    = optional(string, "TEN_MIN")<br/>    anomaly_visibility_time = optional(number, 7)<br/>    filter_pattern          = optional(string, "")<br/>  })</pre> | `{}` | no |
 | <a name="input_log_kms_key_id"></a> [log\_kms\_key\_id](#input\_log\_kms\_key\_id) | ARN of a KMS key to encrypt the CloudWatch log group. Empty uses the default AWS-owned key. The key policy must allow the CloudWatch Logs service principal in this region. | `string` | `""` | no |
@@ -358,7 +404,7 @@ This module is released under the MIT License.
 | <a name="input_service_connect"></a> [service\_connect](#input\_service\_connect) | ECS Service Connect configuration. type = client-only joins the namespace as a client; client-server also advertises this service (default port plus optional additional\_ports) for discovery by other services. The namespace is assumed to share the cluster name. | <pre>object({<br/>    enabled     = optional(bool, false)<br/>    type        = optional(string, "client-only")<br/>    port        = optional(number, 80)<br/>    name        = optional(string, "service")<br/>    timeout     = optional(number, 15)<br/>    appProtocol = optional(string, "http")<br/>    additional_ports = optional(list(object({<br/>      name        = string<br/>      port        = number<br/>      appProtocol = optional(string, "http")<br/>    })), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Subnet IDs for the ECS tasks. Required when network\_mode is 'awsvpc'. | `list(string)` | `[]` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to add to all resources | `map(string)` | `{}` | no |
-| <a name="input_task_role"></a> [task\_role](#input\_task\_role) | IAM role the container assumes — the application's own permissions. Either create it here (create = true, with inline\_policy and attach\_policies) or supply an existing one (arn). It starts with no permissions: only the application knows what it needs. | <pre>object({<br/>    create          = optional(bool, false)<br/>    arn             = optional(string, "")<br/>    name            = optional(string, "")<br/>    inline_policy   = optional(string, "")<br/>    attach_policies = optional(list(string), [])<br/>  })</pre> | `{}` | no |
+| <a name="input_task_role"></a> [task\_role](#input\_task\_role) | IAM role the container assumes — the application's own permissions. Either create it here (create = true, with inline\_policy and attach\_policies) or supply an existing one (arn). It starts with no permissions: only the application knows what it needs. That includes ECS Exec — enable\_execute\_command needs ssmmessages:CreateControlChannel, CreateDataChannel, OpenControlChannel and OpenDataChannel added via inline\_policy. | <pre>object({<br/>    create          = optional(bool, false)<br/>    arn             = optional(string, "")<br/>    name            = optional(string, "")<br/>    inline_policy   = optional(string, "")<br/>    attach_policies = optional(list(string), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC | `string` | n/a | yes |
 
 ## Outputs
