@@ -138,9 +138,20 @@ variable "assign_public_ip" {
 }
 
 variable "enable_execute_command" {
-  description = "Enable execute command"
+  description = "Enable ECS Exec (aws ecs execute-command) on the service. Requires a task role: ECS rejects CreateService without one, and that role needs the ssmmessages permissions ECS Exec runs on — this module attaches no policy granting them. Set on the service rather than the task definition, so unlike the task definition inputs it reconciles normally."
   type        = bool
   default     = false
+
+  # Fargate only. On EC2 the instance role stands in for an absent task role, so
+  # that combination is left to the API rather than rejected here.
+  validation {
+    condition = (
+      !var.enable_execute_command ||
+      var.ecs_launch_type != "FARGATE" ||
+      var.task_role.create || var.task_role.arn != ""
+    )
+    error_message = "enable_execute_command on Fargate requires a task role: ECS Exec needs ssmmessages permissions on the task IAM role, and Fargate has no instance role to fall back to. Set task_role.create = true or task_role.arn."
+  }
 }
 
 variable "ecs_task_cpu" {
@@ -306,7 +317,7 @@ variable "tags" {
 }
 
 variable "task_role" {
-  description = "IAM role the container assumes — the application's own permissions. Either create it here (create = true, with inline_policy and attach_policies) or supply an existing one (arn). It starts with no permissions: only the application knows what it needs."
+  description = "IAM role the container assumes — the application's own permissions. Either create it here (create = true, with inline_policy and attach_policies) or supply an existing one (arn). It starts with no permissions: only the application knows what it needs. That includes ECS Exec — enable_execute_command needs ssmmessages:CreateControlChannel, CreateDataChannel, OpenControlChannel and OpenDataChannel added via inline_policy."
   type = object({
     create          = optional(bool, false)
     arn             = optional(string, "")

@@ -37,6 +37,17 @@ resource "aws_iam_role_policy" "additional_permissions" {
           "logs:PutLogEvents"
         ]
         Resource = "*"
+      },
+      # Required by enable_execute_command below; the module grants nothing for it.
+      {
+        Effect = "Allow"
+        Action = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
+        ]
+        Resource = "*"
       }
     ]
   })

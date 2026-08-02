@@ -203,6 +203,52 @@ Manager, add `ssm:GetParameters` / `secretsmanager:GetSecretValue` through
 The effective ARNs are exposed as the `task_role_arn` and `execution_role_arn`
 outputs, and published to SSM (below) for a deploy pipeline.
 
+## ECS Exec
+
+`enable_execute_command = true` requires a task role. ECS refuses to create the
+service without one — on Fargate, where there is no instance role to fall back
+to, the module rejects that combination at plan time:
+
+```
+enable_execute_command on Fargate requires a task role: ...
+```
+
+Supplying a task role satisfies ECS, but not the feature: ECS Exec tunnels
+through SSM Session Manager, and the module attaches nothing granting it. Add
+the permissions yourself:
+
+```hcl
+task_role = {
+  create = true
+  inline_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+```
+
+Without them the service comes up and `execute-command` fails per session with
+`TargetNotConnected`.
+
+If an apply already failed at `CreateService` for a missing task role, adding one
+is not enough on its own. The task definition was registered in the same apply
+and is write-once (above), so the corrected config produces no new revision and
+the retry recreates the service against the same role-less one. Force a new
+revision:
+
+```bash
+terraform apply -replace=module.<name>.aws_ecs_task_definition.task_definition
+```
+
 ## SSM Parameters
 
 The module publishes per-service metadata to SSM Parameter Store so a deploy

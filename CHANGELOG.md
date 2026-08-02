@@ -8,6 +8,41 @@ Releases are cut automatically from conventional-commit messages on merge to
 `main`. A breaking change requires `feat!:` or a `BREAKING CHANGE:` footer in
 the squash commit; without one the release workflow defaults to a patch bump.
 
+## [3.1.0]
+
+### Added
+
+- **`enable_execute_command = true` on Fargate now requires a task role**, and is
+  rejected at plan time when `task_role` supplies neither `create` nor `arn`.
+
+  ECS refuses `CreateService` for a task definition with no `taskRoleArn` when
+  execute-command is enabled, and Fargate has no instance role to fall back to.
+  Previously the plan succeeded and the apply failed partway through, after the
+  task definition had already been registered — and because that task definition
+  is write-once, adding the role afterwards produced no new revision, so the
+  retry failed the same way. Recovering needed
+  `terraform apply -replace=module.<name>.aws_ecs_task_definition.task_definition`.
+
+  EC2 is not covered by the rule: there the instance role stands in for an absent
+  task role.
+
+### Changed
+
+- **`enable_execute_command` and `task_role` descriptions now state the IAM
+  prerequisite.** ECS Exec tunnels through SSM Session Manager and needs
+  `ssmmessages:CreateControlChannel`, `CreateDataChannel`, `OpenControlChannel`
+  and `OpenDataChannel` on the task role. The module attaches no policy granting
+  them — supply them through `task_role.inline_policy`. Without them the service
+  is created and each `execute-command` session fails with `TargetNotConnected`.
+  A new README section documents this, and the ALB example now grants the
+  permissions it was already implying by enabling the feature.
+
+## [3.0.1]
+
+### Fixed
+
+- Documentation corrections in `README.md`, `CHANGELOG.md` and `CONTRIBUTING.md`.
+
 ## [3.0.0]
 
 ### Breaking changes
