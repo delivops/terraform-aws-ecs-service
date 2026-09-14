@@ -8,6 +8,33 @@ Releases are cut automatically from conventional-commit messages on merge to
 `main`. A breaking change requires `feat!:` or a `BREAKING CHANGE:` footer in
 the squash commit; without one the release workflow defaults to a patch bump.
 
+## [3.2.0]
+
+### Added
+
+- **`task_definition_template`: a Terraform-managed task definition for the
+  deploy pipeline to copy.** When enabled, the module keeps a fully managed task
+  definition in a separate family, `<cluster>_<service>-template`, and publishes
+  the family name to SSM at `/ecs/<cluster>/<service>/task-definition-template`.
+  A deploy describes the family's latest revision, replaces the image of
+  `container_name`, strips the read-only fields and registers the result into
+  the service's family. All task settings (CPU, memory, architecture, ephemeral
+  storage, every container definition) stay in Terraform, and deploys don't run
+  Terraform.
+
+  `container_definitions` is HCL in the shape of the ECS `RegisterTaskDefinition`
+  API. Plan-time validations require `cpu` and `memory`, a list of containers
+  that includes one named `container_name`, an `X86_64` or `ARM64` architecture,
+  and a non-empty `family_suffix` of letters, digits, hyphens and underscores.
+  The template is replaced with `create_before_destroy`, so the
+  family always has an ACTIVE revision during an apply.
+
+  New outputs: `task_definition_template_family`, `task_definition_template_arn`
+  and `ssm_task_definition_template_parameter_name`.
+
+  Opt-in: the write-once task definition and the service lifecycle are unchanged,
+  and existing configurations plan no changes.
+
 ## [3.1.0]
 
 ### Added

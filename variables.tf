@@ -360,3 +360,60 @@ variable "execution_role" {
     error_message = "execution_role.arn must be a full IAM role ARN, not a role name."
   }
 }
+
+variable "task_definition_template" {
+  description = <<-EOT
+    A task definition kept up to date by Terraform in its own family,
+    "<cluster>_<service>-template" by default, for the deploy pipeline to copy.
+    The pipeline reads the latest revision, swaps the image of `container_name`
+    for the build it is deploying, and registers the result into the service's
+    family. Unlike the write-once task definition the service starts with,
+    every change here registers a new template revision, but nothing reaches
+    running tasks until the next deploy.
+
+    `container_definitions` is a list of container definitions in HCL, in the
+    shape the ECS RegisterTaskDefinition API expects; the module jsonencodes it.
+    The image of `container_name` is a placeholder that never runs, since the
+    pipeline always replaces it. The task and execution roles, network mode and
+    launch type come from the module's own inputs. The family name is published
+    to SSM at /ecs/<cluster>/<service>/task-definition-template.
+  EOT
+  type = object({
+    enabled                 = optional(bool, false)
+    family_suffix           = optional(string, "-template")
+    cpu                     = optional(number)
+    memory                  = optional(number)
+    cpu_architecture        = optional(string, "X86_64")
+    operating_system_family = optional(string, "LINUX")
+    ephemeral_storage_gib   = optional(number)
+    container_definitions   = optional(any, [])
+  })
+  default = {}
+
+  validation {
+    condition = !var.task_definition_template.enabled || (
+      var.task_definition_template.cpu != null && var.task_definition_template.memory != null
+    )
+    error_message = "task_definition_template.cpu and task_definition_template.memory are required when the template is enabled."
+  }
+
+  validation {
+    condition = !var.task_definition_template.enabled || (
+      !can(keys(var.task_definition_template.container_definitions)) && contains(
+        try([for c in var.task_definition_template.container_definitions : try(c.name, "")], []),
+        var.container_name
+      )
+    )
+    error_message = "task_definition_template.container_definitions must be a list containing a container named container_name, whose image the deploy pipeline replaces."
+  }
+
+  validation {
+    condition     = contains(["X86_64", "ARM64"], var.task_definition_template.cpu_architecture)
+    error_message = "task_definition_template.cpu_architecture must be X86_64 or ARM64."
+  }
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9_-]+$", var.task_definition_template.family_suffix))
+    error_message = "task_definition_template.family_suffix must be non-empty (an empty suffix would share the service's family, so the pipeline would copy its own last deploy) and contain only letters, digits, hyphens and underscores."
+  }
+}

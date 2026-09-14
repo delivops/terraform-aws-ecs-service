@@ -31,3 +31,9 @@ variable "route_53_zone_id" {
   type        = string
   default     = ""
 }
+
+variable "region" {
+  description = "AWS region, for container log configuration"
+  type        = string
+  default     = "us-east-1"
+}

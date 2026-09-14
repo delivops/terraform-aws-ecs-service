@@ -11,6 +11,7 @@ This Terraform module deploys an ECS service on Fargate or EC2, with support for
 - Support for host-based and path-based routing rules
 - CloudWatch logging integration, with optional KMS encryption
 - Separate task and execution roles, published to SSM for a deploy pipeline
+- Optional Terraform-managed task definition template that the deploy pipeline copies, swapping only the image
 - Deployment circuit breaker and CloudWatch alarms integration
 - Route53 DNS record management (other providers, e.g. Cloudflare, can be wired via the `load_balancer` output)
 
@@ -18,6 +19,7 @@ This Terraform module deploys an ECS service on Fargate or EC2, with support for
 
 - ECS Service (Fargate or EC2)
 - ECS Task Definition (initial revision only — see below)
+- ECS Task Definition template, in its own family (optional)
 - Application/Network Load Balancer Target Group (optional)
 - Load Balancer Listener Rules (host-based and path-based)
 - CloudWatch Log Group
@@ -47,6 +49,60 @@ actual change — update them in the pipeline that registers the task definition
 Inputs on the *service* — load balancer wiring, Service Connect, placement,
 deployment settings — reconcile normally. The exception is `desired_count`,
 which is also ignored so an external autoscaler can own the running count.
+
+## Task definition template
+
+For teams that want every task setting in Terraform but don't want code deploys
+to run Terraform, `task_definition_template` keeps a second, fully managed task
+definition in its own family, `<cluster>_<service>-template`. The image tag is
+then the only thing the pipeline decides.
+
+```hcl
+task_definition_template = {
+  enabled = true
+  cpu     = 512
+  memory  = 1024
+  container_definitions = [
+    { name = "app", image = "my-repo:template", essential = true, ... },
+    { name = "otel-collector", image = "otel/opentelemetry-collector:0.110.0", ... },
+  ]
+}
+```
+
+`container_definitions` is HCL in the shape the ECS `RegisterTaskDefinition`
+API expects (`portMappings`, `logConfiguration`, `secrets`, ...); the module
+`jsonencode`s it. It must contain a container named `container_name`. The task
+and execution roles, network mode and launch type come from the module's
+existing inputs.
+
+Every change to the template registers a new revision in the template family.
+Nothing reaches running tasks until the next deploy. The family name is
+published to SSM at `/ecs/<cluster>/<service>/task-definition-template`, and the
+deploy pipeline is expected to:
+
+1. Read the family from that parameter.
+2. Describe the family's latest ACTIVE revision
+   (`aws ecs describe-task-definition --task-definition <family>`).
+3. Replace the `image` of the `container_name` container with the build being
+   deployed.
+4. Remove the read-only fields `taskDefinitionArn`, `revision`, `status`,
+   `requiresAttributes`, `compatibilities`, `registeredAt`, `registeredBy`,
+   `deregisteredAt` and `deleteRequestedAt`, and set `family` to
+   `<cluster>_<service>`.
+5. Register the result and update the service to the new revision.
+
+The write-once task definition and the service lifecycle described above are
+unchanged: the service family is still owned by the pipeline, and the template
+only feeds it. Tags are not copied; the service's tags propagate to tasks as
+usual.
+
+The template revision is replaced with `create_before_destroy`, so the family
+always has an ACTIVE revision for a deploy that runs during an apply.
+
+Every argument of a task definition forces replacement, so a plan that proposes
+replacing the template on each run with no configuration change means ECS
+returned a container definition in a different shape than the one written.
+Write the field the way `describe-task-definition` returns it.
 
 ## Usage
 
@@ -258,6 +314,7 @@ pipeline can read it without reconstructing values:
 |---|---|---|
 | `/ecs/<cluster>/<service>/task-role` | Task role ARN (application permissions) | Not created when no task role exists. |
 | `/ecs/<cluster>/<service>/execution-role` | Execution role ARN (ECR pull, log write, secret fetch) | Not created when no execution role exists. |
+| `/ecs/<cluster>/<service>/task-definition-template` | Task definition template family | Only created when `task_definition_template.enabled`. See [Task definition template](#task-definition-template). |
 
 The parameter names are exposed via the `ssm_task_role_parameter_name` and
 `ssm_execution_role_parameter_name` outputs. When a single shared role is used
@@ -314,7 +371,7 @@ only seeds the count at service creation.
 
 - Task CPU and memory default to 256 units / 512 MiB, configurable via `ecs_task_cpu` and `ecs_task_memory`
 - The default container image is `nginx:latest`, overridable via `container_image`
-- The module sets no `runtime_platform`, so the task definition uses the ECS default (Linux/X86_64). Set the architecture in the CI-managed task definition if you need ARM64.
+- The initial task definition sets no `runtime_platform`, so it uses the ECS default (Linux/X86_64). Set the architecture in the CI-managed task definition if you need ARM64, or with `task_definition_template.cpu_architecture` when using the template.
 - The module ignores changes to the task definition to support external (CI-managed) deployments
 - An NLB must be created outside this module. Pass its ARN as `nlb_arn`, set `protocol = "TCP"` and `health_check_protocol = "TCP"`; the module creates the listener and can still manage the Route53 alias record for it.
 

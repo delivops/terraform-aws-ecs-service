@@ -31,3 +31,14 @@ resource "aws_ssm_parameter" "execution_role" {
   value = local.execution_role_arn
   tags  = local.common_tags
 }
+
+# /ecs/<cluster>/<service>/task-definition-template — the family the deploy
+# pipeline copies the latest revision from.
+resource "aws_ssm_parameter" "task_definition_template" {
+  count = var.task_definition_template.enabled ? 1 : 0
+
+  name  = "/ecs/${var.ecs_cluster_name}/${var.ecs_service_name}/task-definition-template"
+  type  = "String"
+  value = aws_ecs_task_definition.template[0].family
+  tags  = local.common_tags
+}

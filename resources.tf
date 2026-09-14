@@ -265,6 +265,39 @@ resource "aws_ecs_task_definition" "task_definition" {
   }
 }
 
+resource "aws_ecs_task_definition" "template" {
+  count = var.task_definition_template.enabled ? 1 : 0
+
+  family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}${var.task_definition_template.family_suffix}"
+  network_mode             = var.network_mode
+  requires_compatibilities = [var.ecs_launch_type]
+  cpu                      = var.task_definition_template.cpu
+  memory                   = var.task_definition_template.memory
+  task_role_arn            = local.task_role_arn
+  execution_role_arn       = local.execution_role_arn
+  container_definitions    = jsonencode(var.task_definition_template.container_definitions)
+  tags                     = local.common_tags
+
+  runtime_platform {
+    cpu_architecture        = var.task_definition_template.cpu_architecture
+    operating_system_family = var.task_definition_template.operating_system_family
+  }
+
+  dynamic "ephemeral_storage" {
+    for_each = var.task_definition_template.ephemeral_storage_gib != null ? [1] : []
+    content {
+      size_in_gib = var.task_definition_template.ephemeral_storage_gib
+    }
+  }
+
+  # Every change replaces the revision. Registering the new one before the old
+  # is deregistered means the family always has an ACTIVE revision for a
+  # deploy that reads it mid-apply.
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 resource "aws_ecs_service" "ecs_service" {
   name                               = var.ecs_service_name
   cluster                            = data.aws_ecs_cluster.ecs_cluster.id
