@@ -19,18 +19,36 @@ module "template_ecs_service" {
 
   task_role = {
     create = true
-  }
-
-  execution_role = {
-    create = true
-    # AmazonECSTaskExecutionRolePolicy does not cover secrets.
+    # secret_files are downloaded by an init container running inside the task,
+    # so they are read with the task role, not the execution role.
     inline_policy = jsonencode({
       Version = "2012-10-17"
       Statement = [
         {
           Effect   = "Allow"
-          Action   = ["secretsmanager:GetSecretValue", "ssm:GetParameters"]
-          Resource = "*"
+          Action   = ["secretsmanager:GetSecretValue"]
+          Resource = ["arn:aws:secretsmanager:*:*:secret:template-app-tls-cert-*"]
+        }
+      ]
+    })
+  }
+
+  execution_role = {
+    create = true
+    # AmazonECSTaskExecutionRolePolicy does not cover secrets and parameters
+    # injected as environment variables.
+    inline_policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect   = "Allow"
+          Action   = ["secretsmanager:GetSecretValue"]
+          Resource = [var.database_secret_arn]
+        },
+        {
+          Effect   = "Allow"
+          Action   = ["ssm:GetParameters"]
+          Resource = ["arn:aws:ssm:*:*:parameter/template-app/*"]
         }
       ]
     })

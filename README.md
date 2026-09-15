@@ -103,7 +103,7 @@ and volumes behind `secret_files` and `writable_dirs`.
 | `secrets` | One secret per entry: env var name ⇒ secret ARN, reading the JSON key of the same name (`<arn>:<name>::`). |
 | `secrets_envs` | `[{ id = <secret ARN>, values = [<JSON keys>] }]`, one env var per key. Mutually exclusive with `secrets`. |
 | `secrets_value_from` | Env var name ⇒ `valueFrom` used verbatim: an SSM parameter, or a whole secret. |
-| `secret_files` | An `init-container-for-secret-files` container that downloads each secret to `secrets_files_path` on the `shared-volume` volume, and a `SUCCESS` dependency on it. |
+| `secret_files` | An `init-container-for-secret-files` container that downloads each secret to `secrets_files_path` on the `shared-volume` volume, and a `SUCCESS` dependency on it. The download runs inside the task, so the **task role** needs `secretsmanager:GetSecretValue` on those secrets. Secrets injected as env vars are read with the execution role. |
 | `readonly_root_filesystem`, `writable_dirs` | `readonlyRootFilesystem`, and a `writable-<path>` volume mounted per directory. Both apply to every container the application owns: its init container, fluent-bit and otel-collector. |
 | `otel_collector` | An `otel-collector` container on ports 4317 (gRPC) and 4318. With no `image_name` or `image`, it runs the public ADOT image with its config read from the SSM parameter `ssm_name`. |
 | `fluent_bit_collector` | A `fluent-bit` container from `image_name` or `image`, one of which is required. The application logs through FireLens and waits for it to start. `ecs_log_metadata` is a bool. |
