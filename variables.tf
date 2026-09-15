@@ -360,3 +360,269 @@ variable "execution_role" {
     error_message = "execution_role.arn must be a full IAM role ARN, not a role name."
   }
 }
+
+variable "task_definition_template" {
+  description = <<-EOT
+    A task definition kept up to date by Terraform in its own family,
+    "<cluster>_<service>-template" by default, for the deploy pipeline to copy.
+    The pipeline reads the latest revision, swaps the image of `container_name`
+    for the build it is deploying, and registers the result into the service's
+    family. Unlike the write-once task definition the service starts with,
+    every change here registers a new template revision, but nothing reaches
+    running tasks until the next deploy.
+
+    The container definitions are generated from the keys below, which mirror
+    the task config YAML of delivops/ecs-deploy-action: the `container_name`
+    container, a secret-file init container, the fluent-bit and otel-collector
+    containers, and `sidecars`. Log configuration points at the module's log
+    group. The image of `container_name` is `container_image`, a placeholder the
+    pipeline replaces. The task and execution roles, network mode and launch
+    type come from the module's own inputs.
+
+    - `envs`: environment variables.
+    - `secrets`: env var name => Secrets Manager secret ARN; the variable takes
+      the value of the JSON key with the same name.
+    - `secrets_envs`: [{ id = secret ARN, values = [JSON keys] }]; each key
+      becomes an env var of the same name. Mutually exclusive with `secrets`.
+    - `secrets_value_from`: env var name => a `valueFrom` used verbatim (an SSM
+      parameter, or a whole secret).
+    - `secret_files`: secrets downloaded to `secrets_files_path` by an init
+      container before the container starts.
+    - `writable_dirs`: an empty volume mounted per path, for use with
+      `readonly_root_filesystem`.
+    - `otel_collector`: set (even to {}) to add the collector. Without
+      `image_name`/`image` it runs the public ADOT image with its config read
+      from the SSM parameter `ssm_name`.
+    - `fluent_bit_collector`: adds fluent-bit from `image_name` or `image` (one
+      is required) and routes the application's logs through FireLens.
+    - `image_name` on either collector is a repository in this account's ECR
+      registry; `image` is a full image reference.
+    - `volumes`: extra task volumes, alongside the generated ones.
+    - `container_definitions`: extra containers in ECS API shape, appended as-is.
+    - `container_overrides`: generated container name => ECS API fields merged
+      over it, for anything the keys above don't cover.
+    - `replica_count`: published to SSM for the pipeline to set the service's
+      desired count on deploy. Leave null for autoscaled services.
+
+    The family name is published to SSM at
+    /ecs/<cluster>/<service>/task-definition-template.
+  EOT
+  type = object({
+    enabled                 = optional(bool, false)
+    family_suffix           = optional(string, "-template")
+    cpu                     = optional(number)
+    memory                  = optional(number)
+    cpu_architecture        = optional(string, "X86_64")
+    operating_system_family = optional(string, "LINUX")
+    ephemeral_storage_gib   = optional(number)
+    replica_count           = optional(number)
+
+    port                     = optional(number)
+    additional_ports         = optional(map(number), {})
+    app_protocol             = optional(string, "http")
+    command                  = optional(list(string), [])
+    entrypoint               = optional(list(string), [])
+    stop_timeout             = optional(number)
+    envs                     = optional(map(string), {})
+    secrets                  = optional(map(string), {})
+    secrets_envs             = optional(list(object({ id = string, values = list(string) })), [])
+    secrets_value_from       = optional(map(string), {})
+    secret_files             = optional(list(string), [])
+    secrets_files_path       = optional(string, "/etc/secrets")
+    readonly_root_filesystem = optional(bool)
+    writable_dirs            = optional(list(string), [])
+    health_check = optional(object({
+      command      = optional(string)
+      interval     = optional(number, 30)
+      timeout      = optional(number, 5)
+      retries      = optional(number, 3)
+      start_period = optional(number, 10)
+    }))
+    linux_parameters = optional(object({
+      init_process_enabled = optional(bool)
+      capabilities = optional(object({
+        add  = optional(list(string), [])
+        drop = optional(list(string), [])
+      }))
+      tmpfs = optional(list(object({
+        container_path = optional(string, "/tmp")
+        size           = optional(number, 64)
+        mount_options  = optional(list(string), [])
+      })), [])
+      swappiness         = optional(number)
+      max_swap           = optional(number)
+      shared_memory_size = optional(number)
+      devices = optional(list(object({
+        host_path      = string
+        container_path = optional(string)
+        permissions    = optional(list(string), ["read", "write"])
+      })), [])
+    }))
+
+    otel_collector = optional(object({
+      image_name   = optional(string, "")
+      image        = optional(string)
+      ssm_name     = optional(string, "adot-config-global.yaml")
+      extra_config = optional(string, "")
+      metrics_port = optional(number, 8080)
+      metrics_path = optional(string, "/metrics")
+    }))
+    fluent_bit_collector = optional(object({
+      image_name       = optional(string, "")
+      image            = optional(string)
+      extra_config     = optional(string, "extra.conf")
+      ecs_log_metadata = optional(bool, true)
+      service_name     = optional(string)
+    }))
+
+    sidecars = optional(list(object({
+      name                     = string
+      image                    = string
+      enabled                  = optional(bool, true)
+      essential                = optional(bool, true)
+      port                     = optional(number)
+      additional_ports         = optional(map(number), {})
+      app_protocol             = optional(string, "http")
+      command                  = optional(list(string), [])
+      entrypoint               = optional(list(string), [])
+      stop_timeout             = optional(number)
+      envs                     = optional(map(string), {})
+      secrets                  = optional(map(string), {})
+      secrets_envs             = optional(list(object({ id = string, values = list(string) })), [])
+      secrets_value_from       = optional(map(string), {})
+      secret_files             = optional(list(string), [])
+      secrets_files_path       = optional(string, "/etc/secrets")
+      readonly_root_filesystem = optional(bool)
+      writable_dirs            = optional(list(string), [])
+      cpu                      = optional(number)
+      memory                   = optional(number)
+      memory_reservation       = optional(number)
+      log_stream_prefix        = optional(string)
+      health_check = optional(object({
+        command      = optional(string)
+        interval     = optional(number, 30)
+        timeout      = optional(number, 5)
+        retries      = optional(number, 3)
+        start_period = optional(number, 10)
+      }))
+      linux_parameters = optional(object({
+        init_process_enabled = optional(bool)
+        capabilities = optional(object({
+          add  = optional(list(string), [])
+          drop = optional(list(string), [])
+        }))
+        tmpfs = optional(list(object({
+          container_path = optional(string, "/tmp")
+          size           = optional(number, 64)
+          mount_options  = optional(list(string), [])
+        })), [])
+        swappiness         = optional(number)
+        max_swap           = optional(number)
+        shared_memory_size = optional(number)
+        devices = optional(list(object({
+          host_path      = string
+          container_path = optional(string)
+          permissions    = optional(list(string), ["read", "write"])
+        })), [])
+      }))
+    })), [])
+
+    volumes = optional(list(object({
+      name      = string
+      host_path = optional(string)
+      efs_volume_configuration = optional(object({
+        file_system_id          = string
+        root_directory          = optional(string)
+        transit_encryption      = optional(string)
+        transit_encryption_port = optional(number)
+        authorization_config = optional(object({
+          access_point_id = optional(string)
+          iam             = optional(string)
+        }))
+      }))
+    })), [])
+    container_definitions = optional(any, [])
+    container_overrides   = optional(any, {})
+  })
+  default = {}
+
+  validation {
+    condition = !var.task_definition_template.enabled || (
+      var.task_definition_template.cpu != null && var.task_definition_template.memory != null
+    )
+    error_message = "task_definition_template.cpu and task_definition_template.memory are required when the template is enabled."
+  }
+
+  validation {
+    condition     = !var.task_definition_template.enabled || var.execution_role.create || var.execution_role.arn != ""
+    error_message = "task_definition_template requires an execution role (execution_role.create or execution_role.arn): without one, tasks copied from the template cannot pull from ECR, write logs or read secrets."
+  }
+
+  validation {
+    condition = !var.task_definition_template.enabled || (
+      !can(keys(var.task_definition_template.container_definitions)) && can([for c in var.task_definition_template.container_definitions : c])
+    )
+    error_message = "task_definition_template.container_definitions must be a list of container definitions."
+  }
+
+  validation {
+    condition     = contains(["X86_64", "ARM64"], var.task_definition_template.cpu_architecture)
+    error_message = "task_definition_template.cpu_architecture must be X86_64 or ARM64."
+  }
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9_-]+$", var.task_definition_template.family_suffix))
+    error_message = "task_definition_template.family_suffix must be non-empty (an empty suffix would share the service's family, so the pipeline would copy its own last deploy) and contain only letters, digits, hyphens and underscores."
+  }
+
+  validation {
+    condition = alltrue(concat(
+      [length(var.task_definition_template.secrets) == 0 || length(var.task_definition_template.secrets_envs) == 0],
+      [for s in var.task_definition_template.sidecars : length(s.secrets) == 0 || length(s.secrets_envs) == 0],
+    ))
+    error_message = "task_definition_template: set secrets or secrets_envs on a container, not both."
+  }
+
+  validation {
+    condition = alltrue([
+      for s in var.task_definition_template.sidecars :
+      can(regex("^[a-zA-Z0-9][a-zA-Z0-9_-]{0,254}$", s.name)) && s.name != "default" && s.log_stream_prefix != "default"
+    ])
+    error_message = "task_definition_template.sidecars: a name must start with a letter or digit and contain only letters, digits, hyphens and underscores; \"default\" is reserved as a name and as a log_stream_prefix."
+  }
+
+  validation {
+    condition = alltrue([
+      for s in var.task_definition_template.sidecars :
+      s.memory == null || s.memory_reservation == null ? true : s.memory_reservation <= s.memory
+    ])
+    error_message = "task_definition_template.sidecars: memory_reservation must not exceed memory."
+  }
+
+  validation {
+    condition = alltrue(concat(
+      [contains(["http", "http2", "grpc", "tcp"], var.task_definition_template.app_protocol)],
+      [for s in var.task_definition_template.sidecars : contains(["http", "http2", "grpc", "tcp"], s.app_protocol)],
+    ))
+    error_message = "task_definition_template: app_protocol must be http, http2, grpc or tcp."
+  }
+
+  validation {
+    condition = alltrue(concat(
+      [for name in keys(var.task_definition_template.additional_ports) : can(regex("^[a-z][a-z0-9_-]{0,63}$", name)) && name != "default"],
+      flatten([for s in var.task_definition_template.sidecars : [for name in keys(s.additional_ports) : can(regex("^[a-z][a-z0-9_-]{0,63}$", name))]]),
+      [for s in var.task_definition_template.sidecars : s.port == null ? true : can(regex("^[a-z][a-z0-9_-]{0,63}$", "${s.name}-${s.port}-tcp"))],
+    ))
+    error_message = "task_definition_template: port mapping names must start with a lowercase letter and contain only lowercase letters, digits, hyphens and underscores, up to 64 characters. That covers additional_ports keys, and the <name>-<port>-tcp name of a sidecar with a port, so such a sidecar's name must be lowercase. The application's additional_ports cannot use \"default\", which is its main port's name."
+  }
+
+  validation {
+    condition     = var.task_definition_template.fluent_bit_collector == null ? true : (trimspace(var.task_definition_template.fluent_bit_collector.image_name) != "" || var.task_definition_template.fluent_bit_collector.image != null)
+    error_message = "task_definition_template.fluent_bit_collector needs image_name or image; leave it null to run without fluent-bit."
+  }
+
+  validation {
+    condition     = var.task_definition_template.replica_count == null ? true : var.task_definition_template.replica_count >= 0 && floor(var.task_definition_template.replica_count) == var.task_definition_template.replica_count
+    error_message = "task_definition_template.replica_count must be a non-negative whole number."
+  }
+}
