@@ -18,19 +18,44 @@ the squash commit; without one the release workflow defaults to a patch bump.
   the family name to SSM at `/ecs/<cluster>/<service>/task-definition-template`.
   A deploy describes the family's latest revision, replaces the image of
   `container_name`, strips the read-only fields and registers the result into
-  the service's family. All task settings (CPU, memory, architecture, ephemeral
-  storage, every container definition) stay in Terraform, and deploys don't run
-  Terraform.
+  the service's family. Every task setting stays in Terraform, and deploys don't
+  run Terraform.
 
-  `container_definitions` is HCL in the shape of the ECS `RegisterTaskDefinition`
-  API. Plan-time validations require `cpu` and `memory`, a list of containers
-  that includes one named `container_name`, an `X86_64` or `ARM64` architecture,
-  and a non-empty `family_suffix` of letters, digits, hyphens and underscores.
-  The template is replaced with `create_before_destroy`, so the
-  family always has an ACTIVE revision during an apply.
+  The containers are generated from keys that mirror the task config YAML of
+  `delivops/ecs-deploy-action`, and produce the same container definitions it
+  does. The keys cover:
+  - ports, command, entrypoint, stop timeout, health check and Linux parameters
+  - env vars, and secrets as JSON keys of a secret or as verbatim `valueFrom`
+  - secret files, through a generated init container and volume
+  - a read-only root filesystem with writable directories
+  - the OTel and Fluent Bit collectors
+  - isolated sidecars
 
-  New outputs: `task_definition_template_family`, `task_definition_template_arn`
-  and `ssm_task_definition_template_parameter_name`.
+  The module fills in the log group, region, stream prefixes and the ECR
+  registry for collector images. `volumes` (host path or EFS),
+  `container_definitions` (extra raw containers) and `container_overrides`
+  (fields merged over a generated container) cover the rest.
+
+  `replica_count` is published to `/ecs/<cluster>/<service>/replica-count`, so
+  the pipeline sets the desired count on deploy. Leave it null for autoscaled
+  services.
+
+  `runtime_platform` is declared on Fargate only. Plan-time checks:
+  - `cpu` and `memory` are set, and an execution role exists.
+  - The `cpu_architecture` value is valid.
+  - `family_suffix` is non-empty and uses valid characters.
+  - `secrets` and `secrets_envs` aren't both set on one container.
+  - Sidecar names are valid and don't use the reserved `default`.
+  - A sidecar's `memory_reservation` doesn't exceed its `memory`.
+  - Container and volume names are unique.
+  - `replica_count` is a non-negative whole number.
+
+  The template is replaced with `create_before_destroy`, so the family always
+  has an ACTIVE revision during an apply.
+
+  New outputs: `task_definition_template_family`, `task_definition_template_arn`,
+  `ssm_task_definition_template_parameter_name` and
+  `ssm_replica_count_parameter_name`.
 
   Opt-in: the write-once task definition and the service lifecycle are unchanged,
   and existing configurations plan no changes.

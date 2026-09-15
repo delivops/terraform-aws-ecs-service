@@ -100,3 +100,8 @@ output "task_definition_template_arn" {
   description = "ARN of the latest task definition template revision (null unless task_definition_template.enabled)."
   value       = var.task_definition_template.enabled ? aws_ecs_task_definition.template[0].arn : null
 }
+
+output "ssm_replica_count_parameter_name" {
+  description = "Name of the SSM parameter holding the desired count for the deploy pipeline (null unless task_definition_template.enabled and replica_count is set)."
+  value       = length(aws_ssm_parameter.task_definition_template_replica_count) > 0 ? aws_ssm_parameter.task_definition_template_replica_count[0].name : null
+}

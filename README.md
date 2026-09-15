@@ -11,7 +11,7 @@ This Terraform module deploys an ECS service on Fargate or EC2, with support for
 - Support for host-based and path-based routing rules
 - CloudWatch logging integration, with optional KMS encryption
 - Separate task and execution roles, published to SSM for a deploy pipeline
-- Optional Terraform-managed task definition template that the deploy pipeline copies, swapping only the image
+- Optional Terraform-managed task definition template that the deploy pipeline copies, swapping only the image, with containers generated from `ecs-deploy-action`-style keys: log config, secrets, secret-file init containers, OTel/Fluent Bit collectors, sidecars and volumes
 - Deployment circuit breaker and CloudWatch alarms integration
 - Route53 DNS record management (other providers, e.g. Cloudflare, can be wired via the `load_balancer` output)
 
@@ -58,38 +58,154 @@ definition in its own family, `<cluster>_<service>-template`. The image tag is
 then the only thing the pipeline decides.
 
 ```hcl
-task_definition_template = {
-  enabled = true
-  cpu     = 512
-  memory  = 1024
-  container_definitions = [
-    { name = "app", image = "my-repo:template", essential = true, ... },
-    { name = "otel-collector", image = "otel/opentelemetry-collector:0.110.0", ... },
-  ]
+module "api" {
+  source = "delivops/ecs-service/aws"
+  # ... cluster, service, networking ...
+
+  container_name  = "app"
+  container_image = "my-repo:template" # placeholder, replaced on every deploy
+  execution_role  = { create = true }
+
+  task_definition_template = {
+    enabled       = true
+    cpu           = 512
+    memory        = 1024
+    replica_count = 2
+
+    port         = 8080
+    envs         = { LOG_LEVEL = "info" }
+    secrets      = { DB_PASSWORD = "arn:aws:secretsmanager:...:secret:db-AbCdEf" }
+    health_check = { command = "curl -f http://localhost:8080/health || exit 1" }
+
+    otel_collector = {}
+    sidecars = [
+      { name = "cache", image = "redis:7", port = 6379, memory_reservation = 128 },
+    ]
+  }
 }
 ```
 
-`container_definitions` is HCL in the shape the ECS `RegisterTaskDefinition`
-API expects (`portMappings`, `logConfiguration`, `secrets`, ...); the module
-`jsonencode`s it. It must contain a container named `container_name`. The task
-and execution roles, network mode and launch type come from the module's
-existing inputs.
+### Generated containers
+
+The keys mirror the task config YAML of
+[`delivops/ecs-deploy-action`](https://github.com/delivops/ecs-deploy-action)
+and produce the same container definitions, so a service can move from one to
+the other without its running task definition changing. The module fills in
+what the action used to: the log group (`/ecs/<cluster>/<service>`) and region,
+stream prefixes, the ECR registry for collector images, and the init containers
+and volumes behind `secret_files` and `writable_dirs`.
+
+| Key | Generates |
+|---|---|
+| `port`, `additional_ports`, `app_protocol` | `portMappings`; the main port is named `default`. With `network_mode = "bridge"`, `hostPort` is `0`. |
+| `command`, `entrypoint`, `stop_timeout`, `health_check`, `linux_parameters` | The matching container fields. `health_check.command` runs through `CMD-SHELL`. `shared_memory_size` and `devices` are dropped on Fargate. |
+| `envs` | `environment` |
+| `secrets` | One secret per entry: env var name ⇒ secret ARN, reading the JSON key of the same name (`<arn>:<name>::`). |
+| `secrets_envs` | `[{ id = <secret ARN>, values = [<JSON keys>] }]`, one env var per key. Mutually exclusive with `secrets`. |
+| `secrets_value_from` | Env var name ⇒ `valueFrom` used verbatim: an SSM parameter, or a whole secret. |
+| `secret_files` | An `init-container-for-secret-files` container that downloads each secret to `secrets_files_path` on the `shared-volume` volume, and a `SUCCESS` dependency on it. |
+| `readonly_root_filesystem`, `writable_dirs` | `readonlyRootFilesystem`, and a `writable-<path>` volume mounted per directory. Both apply to every container the application owns: its init container, fluent-bit and otel-collector. |
+| `otel_collector` | An `otel-collector` container on ports 4317 (gRPC) and 4318. With no `image_name` or `image`, it runs the public ADOT image with its config read from the SSM parameter `ssm_name`. |
+| `fluent_bit_collector` | With `image_name` or `image`, a `fluent-bit` container. The application logs through FireLens and waits for it to start. |
+| `sidecars` | One container each, with its own copy of the keys above, isolated from the application. A sidecar's `secret_files` get a `<name>-secret-init` container and a `<name>-secrets` volume; its `writable_dirs` get `<name>-writable-<path>` volumes. `readonly_root_filesystem` falls back to the application's value. Logs go to the stream prefix `log_stream_prefix`, which defaults to the sidecar's name. |
+| `volumes` | Extra task volumes (`host_path` or `efs_volume_configuration`), alongside the generated ones. |
+| `container_definitions` | Extra containers in ECS API shape, appended as-is. |
+| `container_overrides` | Container name ⇒ ECS API fields merged over that generated container (e.g. `ulimits`, `dockerLabels`). |
+
+`image_name` on either collector is a repository in the deploying account's ECR
+registry; `image` is a full image reference. Container and volume names must be
+unique across everything generated and supplied, and plans fail when they
+aren't.
+
+Coming from the action's YAML:
+
+- `envs`, `secrets` and `additional_ports` are maps rather than lists of
+  single-key maps. Env values are strings. The action rendered YAML booleans
+  with Python's capitalization, so an unquoted `true` reached the container as
+  `"True"`; write `"True"` to keep the value unchanged.
+- `cpu_arch` is `cpu_architecture`, and `ephemeral_storage` is
+  `ephemeral_storage_gib`.
+- `services_overrides` and `envs_from_files` are plain Terraform: `for_each`
+  with `merge()`, and `file()` or tfvars.
+- A `secrets_envs` entry with only a `name`, where the action discovered the
+  secret's keys at deploy time, has no equivalent. List the keys under `values`.
+- The action ignored `secrets_envs` when `secrets` was also set. The module
+  rejects that combination.
+- `launch_type`, `network_mode` and the role ARNs come from the module's
+  `ecs_launch_type`, `network_mode`, `task_role` and `execution_role`.
+
+`runtime_platform` (`cpu_architecture`, `operating_system_family`) is only
+declared on Fargate, like the action. The template requires an execution role.
+
+### Pipeline contract
 
 Every change to the template registers a new revision in the template family.
-Nothing reaches running tasks until the next deploy. The family name is
-published to SSM at `/ecs/<cluster>/<service>/task-definition-template`, and the
-deploy pipeline is expected to:
+Nothing reaches running tasks until the next deploy. The module publishes:
 
-1. Read the family from that parameter.
-2. Describe the family's latest ACTIVE revision
+| Parameter | Value |
+|---|---|
+| `/ecs/<cluster>/<service>/task-definition-template` | The template family |
+| `/ecs/<cluster>/<service>/replica-count` | `replica_count`; absent when null, i.e. for autoscaled services |
+
+A deploy:
+
+1. Reads the family from the parameter.
+2. Describes the family's latest ACTIVE revision
    (`aws ecs describe-task-definition --task-definition <family>`).
-3. Replace the `image` of the `container_name` container with the build being
+3. Replaces the `image` of the `container_name` container with the build being
    deployed.
-4. Remove the read-only fields `taskDefinitionArn`, `revision`, `status`,
+4. Removes the read-only fields `taskDefinitionArn`, `revision`, `status`,
    `requiresAttributes`, `compatibilities`, `registeredAt`, `registeredBy`,
-   `deregisteredAt` and `deleteRequestedAt`, and set `family` to
+   `deregisteredAt` and `deleteRequestedAt`, and sets `family` to
    `<cluster>_<service>`.
-5. Register the result and update the service to the new revision.
+5. Registers the result and updates the service to the new revision, passing
+   `--desired-count` only when the replica-count parameter exists.
+
+A reference implementation (AWS CLI and `jq`; the deploy role needs
+`ssm:GetParameter`, `ecs:DescribeTaskDefinition`, `ecs:RegisterTaskDefinition`,
+`iam:PassRole`, `ecs:UpdateService` and `ecs:DescribeServices`):
+
+```bash
+#!/bin/bash
+# Usage: deploy-from-template.sh <cluster> <service> <image> [container=app]
+set -euo pipefail
+CLUSTER=$1 SERVICE=$2 IMAGE=$3 CONTAINER=${4:-app}
+PREFIX="/ecs/$CLUSTER/$SERVICE"
+
+FAMILY=$(aws ssm get-parameter --name "$PREFIX/task-definition-template" --query Parameter.Value --output text)
+# A missing replica-count parameter means the desired count is left alone; any
+# other failure (e.g. access denied) must not silently skip it.
+if ! REPLICAS=$(aws ssm get-parameter --name "$PREFIX/replica-count" --query Parameter.Value --output text 2>ssm-error.txt); then
+  grep -q ParameterNotFound ssm-error.txt || { cat ssm-error.txt >&2; exit 1; }
+  REPLICAS=""
+fi
+
+aws ecs describe-task-definition --task-definition "$FAMILY" --query taskDefinition --output json |
+  jq --arg family "${CLUSTER}_${SERVICE}" --arg container "$CONTAINER" --arg image "$IMAGE" '
+    if ([.containerDefinitions[] | select(.name == $container)] | length) != 1
+    then error("template has no container named \($container)") else . end
+    | .family = $family
+    | .containerDefinitions |= map(if .name == $container then .image = $image else . end)
+    | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities,
+          .registeredAt, .registeredBy, .deregisteredAt, .deleteRequestedAt)
+  ' > task-definition.json
+
+ARN=$(aws ecs register-task-definition --cli-input-json file://task-definition.json \
+  --query taskDefinition.taskDefinitionArn --output text)
+aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --task-definition "$ARN" \
+  ${REPLICAS:+--desired-count "$REPLICAS"} >/dev/null
+
+# `aws ecs wait services-stable` gives up after 10 minutes; allow up to 30.
+STABLE=0
+for _ in 1 2 3; do
+  aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE" && { STABLE=1; break; }
+done
+[ "$STABLE" = 1 ] || { echo "service not stable after 30 minutes" >&2; exit 1; }
+DEPLOYED=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+  --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition | [0]' --output text)
+[ "$DEPLOYED" = "$ARN" ] || { echo "deployment rolled back: running $DEPLOYED, expected $ARN" >&2; exit 1; }
+echo "deployed $ARN"
+```
 
 The write-once task definition and the service lifecycle described above are
 unchanged: the service family is still owned by the pipeline, and the template
@@ -101,8 +217,8 @@ always has an ACTIVE revision for a deploy that runs during an apply.
 
 Every argument of a task definition forces replacement, so a plan that proposes
 replacing the template on each run with no configuration change means ECS
-returned a container definition in a different shape than the one written.
-Write the field the way `describe-task-definition` returns it.
+returned a container definition in a different shape than the one generated.
+Set that field in its returned shape through `container_overrides`.
 
 ## Usage
 
@@ -315,6 +431,7 @@ pipeline can read it without reconstructing values:
 | `/ecs/<cluster>/<service>/task-role` | Task role ARN (application permissions) | Not created when no task role exists. |
 | `/ecs/<cluster>/<service>/execution-role` | Execution role ARN (ECR pull, log write, secret fetch) | Not created when no execution role exists. |
 | `/ecs/<cluster>/<service>/task-definition-template` | Task definition template family | Only created when `task_definition_template.enabled`. See [Task definition template](#task-definition-template). |
+| `/ecs/<cluster>/<service>/replica-count` | Desired count for the deploy pipeline | Only created when `task_definition_template.enabled` and `replica_count` is set. |
 
 The parameter names are exposed via the `ssm_task_role_parameter_name` and
 `ssm_execution_role_parameter_name` outputs. When a single shared role is used

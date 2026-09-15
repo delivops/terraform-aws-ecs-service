@@ -42,3 +42,14 @@ resource "aws_ssm_parameter" "task_definition_template" {
   value = aws_ecs_task_definition.template[0].family
   tags  = local.common_tags
 }
+
+# /ecs/<cluster>/<service>/replica-count — the desired count the deploy pipeline
+# sets on the service. Absent when the count is left to an autoscaler.
+resource "aws_ssm_parameter" "task_definition_template_replica_count" {
+  count = var.task_definition_template.enabled && var.task_definition_template.replica_count != null ? 1 : 0
+
+  name  = "/ecs/${var.ecs_cluster_name}/${var.ecs_service_name}/replica-count"
+  type  = "String"
+  value = tostring(var.task_definition_template.replica_count)
+  tags  = local.common_tags
+}

@@ -32,8 +32,7 @@ variable "route_53_zone_id" {
   default     = ""
 }
 
-variable "region" {
-  description = "AWS region, for container log configuration"
+variable "database_secret_arn" {
+  description = "ARN of a Secrets Manager secret holding the database credentials as JSON keys"
   type        = string
-  default     = "us-east-1"
 }

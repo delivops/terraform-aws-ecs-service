@@ -1,11 +1,10 @@
 # Every task setting lives in Terraform; the deploy pipeline only picks the
 # image. The module keeps the "<cluster>_template-app-template" family up to
-# date and publishes its name to
-# /ecs/<cluster>/template-app/task-definition-template. A deploy copies the
-# family's latest revision, replaces the image of the "app" container and
-# registers it into the service's own family.
-#
-# The "app" image below is a placeholder that never runs.
+# date, publishes its name to
+# /ecs/<cluster>/template-app/task-definition-template and the replica count to
+# /ecs/<cluster>/template-app/replica-count. A deploy copies the family's latest
+# revision, replaces the image of the "app" container, registers it into the
+# service's own family and sets the desired count.
 
 module "template_ecs_service" {
   source             = "../"
@@ -15,78 +14,69 @@ module "template_ecs_service" {
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
 
+  # A placeholder: the pipeline replaces it with the build it deploys.
+  container_image = "template-app:template"
+
   task_role = {
     create = true
   }
 
   execution_role = {
     create = true
-    # The app reads a secret from SSM, which AmazonECSTaskExecutionRolePolicy
-    # does not cover.
+    # AmazonECSTaskExecutionRolePolicy does not cover secrets.
     inline_policy = jsonencode({
       Version = "2012-10-17"
       Statement = [
         {
           Effect   = "Allow"
-          Action   = ["ssm:GetParameters"]
-          Resource = "arn:aws:ssm:*:*:parameter/template-app/*"
+          Action   = ["secretsmanager:GetSecretValue", "ssm:GetParameters"]
+          Resource = "*"
         }
       ]
     })
   }
 
   task_definition_template = {
-    enabled          = true
-    cpu              = 512
-    memory           = 1024
-    cpu_architecture = "ARM64"
+    enabled                  = true
+    cpu                      = 1024
+    memory                   = 2048
+    cpu_architecture         = "ARM64"
+    replica_count            = 2
+    readonly_root_filesystem = true
+    writable_dirs            = ["/tmp"]
 
-    container_definitions = [
+    port             = 8080
+    additional_ports = { metrics = 9090 }
+    envs = {
+      LOG_LEVEL                   = "info"
+      OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4317"
+    }
+    # Each env var reads the JSON key of the same name from the secret.
+    secrets_envs = [
+      { id = var.database_secret_arn, values = ["DB_HOST", "DB_PASSWORD"] },
+    ]
+    secrets_value_from = {
+      API_KEY = "/template-app/api-key"
+    }
+    secret_files = ["template-app-tls-cert"]
+    health_check = {
+      command = "curl -f http://localhost:8080/health || exit 1"
+    }
+
+    otel_collector = {}
+
+    sidecars = [
       {
-        name      = "app"
-        image     = "template-app:template"
-        essential = true
-        portMappings = [
-          { name = "default", containerPort = 8080, hostPort = 8080, protocol = "tcp" }
-        ]
-        environment = [
-          { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://localhost:4317" },
-        ]
-        secrets = [
-          { name = "DATABASE_URL", valueFrom = "/template-app/database-url" },
-        ]
-        healthCheck = {
-          command     = ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
-          interval    = 30
-          timeout     = 5
-          retries     = 3
-          startPeriod = 10
-        }
-        dependsOn = [
-          { containerName = "otel-collector", condition = "START" }
-        ]
-        logConfiguration = {
-          logDriver = "awslogs"
-          options = {
-            awslogs-group         = "/ecs/${var.cluster_name}/template-app"
-            awslogs-region        = var.region
-            awslogs-stream-prefix = "app"
-          }
-        }
-      },
-      {
-        name      = "otel-collector"
-        image     = "otel/opentelemetry-collector-contrib:0.110.0"
-        essential = false
-        logConfiguration = {
-          logDriver = "awslogs"
-          options = {
-            awslogs-group         = "/ecs/${var.cluster_name}/template-app"
-            awslogs-region        = var.region
-            awslogs-stream-prefix = "otel"
-          }
-        }
+        name               = "cache"
+        image              = "public.ecr.aws/docker/library/redis:7"
+        port               = 6379
+        memory_reservation = 128
+        writable_dirs      = ["/data"]
       },
     ]
+
+    container_overrides = {
+      app = { ulimits = [{ name = "nofile", softLimit = 65536, hardLimit = 65536 }] }
+    }
   }
 }

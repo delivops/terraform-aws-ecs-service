@@ -275,12 +275,17 @@ resource "aws_ecs_task_definition" "template" {
   memory                   = var.task_definition_template.memory
   task_role_arn            = local.task_role_arn
   execution_role_arn       = local.execution_role_arn
-  container_definitions    = jsonencode(var.task_definition_template.container_definitions)
+  container_definitions    = jsonencode(local.tdt_container_definitions)
   tags                     = local.common_tags
 
-  runtime_platform {
-    cpu_architecture        = var.task_definition_template.cpu_architecture
-    operating_system_family = var.task_definition_template.operating_system_family
+  # EC2 tasks run on whatever the instance is, so the platform is only declared
+  # for Fargate.
+  dynamic "runtime_platform" {
+    for_each = var.ecs_launch_type == "FARGATE" ? [1] : []
+    content {
+      cpu_architecture        = var.task_definition_template.cpu_architecture
+      operating_system_family = var.task_definition_template.operating_system_family
+    }
   }
 
   dynamic "ephemeral_storage" {
@@ -290,11 +295,47 @@ resource "aws_ecs_task_definition" "template" {
     }
   }
 
+  dynamic "volume" {
+    for_each = local.tdt_volumes
+    content {
+      name      = volume.value.name
+      host_path = volume.value.host_path
+
+      dynamic "efs_volume_configuration" {
+        for_each = volume.value.efs_volume_configuration != null ? [volume.value.efs_volume_configuration] : []
+        content {
+          file_system_id          = efs_volume_configuration.value.file_system_id
+          root_directory          = efs_volume_configuration.value.root_directory
+          transit_encryption      = efs_volume_configuration.value.transit_encryption
+          transit_encryption_port = efs_volume_configuration.value.transit_encryption_port
+
+          dynamic "authorization_config" {
+            for_each = efs_volume_configuration.value.authorization_config != null ? [efs_volume_configuration.value.authorization_config] : []
+            content {
+              access_point_id = authorization_config.value.access_point_id
+              iam             = authorization_config.value.iam
+            }
+          }
+        }
+      }
+    }
+  }
+
   # Every change replaces the revision. Registering the new one before the old
   # is deregistered means the family always has an ACTIVE revision for a
   # deploy that reads it mid-apply.
   lifecycle {
     create_before_destroy = true
+
+    precondition {
+      condition     = length(distinct(local.tdt_container_names)) == length(local.tdt_container_names)
+      error_message = "task_definition_template: container names must be unique across the application container, the generated init, fluent-bit and otel-collector containers, sidecars (and their <name>-secret-init containers) and container_definitions."
+    }
+
+    precondition {
+      condition     = length(distinct(local.tdt_volumes[*].name)) == length(local.tdt_volumes)
+      error_message = "task_definition_template: volume names must be unique across the generated volumes (shared-volume, writable-*, <sidecar>-secrets, <sidecar>-writable-*) and volumes."
+    }
   }
 }
 
