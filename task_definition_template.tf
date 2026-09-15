@@ -255,7 +255,7 @@ locals {
           options = {
             "config-file-type"        = "file"
             "config-file-value"       = "extra/${fb.extra_config}"
-            "enable-ecs-log-metadata" = fb.ecs_log_metadata
+            "enable-ecs-log-metadata" = tostring(fb.ecs_log_metadata)
           }
         }
         readonlyRootFilesystem = local.tdt.readonly_root_filesystem
@@ -303,6 +303,10 @@ locals {
   )
 
   tdt_container_names = [for c in local.tdt_container_definitions : try(c.name, "")]
+
+  tdt_port_mapping_names = flatten([
+    for c in local.tdt_generated_containers : [for p in try(c.portMappings, []) : p.name]
+  ])
 
   tdt_volumes = concat(
     [for files in [local.tdt.secret_files] : { name = "shared-volume", host_path = null, efs_volume_configuration = null } if length(files) > 0],

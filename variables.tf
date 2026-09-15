@@ -393,14 +393,14 @@ variable "task_definition_template" {
     - `otel_collector`: set (even to {}) to add the collector. Without
       `image_name`/`image` it runs the public ADOT image with its config read
       from the SSM parameter `ssm_name`.
-    - `fluent_bit_collector`: with `image_name` or `image`, adds fluent-bit and
-      routes the application's logs through FireLens.
+    - `fluent_bit_collector`: adds fluent-bit from `image_name` or `image` (one
+      is required) and routes the application's logs through FireLens.
     - `image_name` on either collector is a repository in this account's ECR
       registry; `image` is a full image reference.
     - `volumes`: extra task volumes, alongside the generated ones.
     - `container_definitions`: extra containers in ECS API shape, appended as-is.
-    - `container_overrides`: container name => ECS API fields merged over that
-      generated container, for anything the keys above don't cover.
+    - `container_overrides`: generated container name => ECS API fields merged
+      over it, for anything the keys above don't cover.
     - `replica_count`: published to SSM for the pipeline to set the service's
       desired count on deploy. Leave null for autoscaled services.
 
@@ -471,7 +471,7 @@ variable "task_definition_template" {
       image_name       = optional(string, "")
       image            = optional(string)
       extra_config     = optional(string, "extra.conf")
-      ecs_log_metadata = optional(string, "true")
+      ecs_log_metadata = optional(bool, true)
       service_name     = optional(string)
     }))
 
@@ -597,6 +597,28 @@ variable "task_definition_template" {
       s.memory == null || s.memory_reservation == null ? true : s.memory_reservation <= s.memory
     ])
     error_message = "task_definition_template.sidecars: memory_reservation must not exceed memory."
+  }
+
+  validation {
+    condition = alltrue(concat(
+      [contains(["http", "http2", "grpc", "tcp"], var.task_definition_template.app_protocol)],
+      [for s in var.task_definition_template.sidecars : contains(["http", "http2", "grpc", "tcp"], s.app_protocol)],
+    ))
+    error_message = "task_definition_template: app_protocol must be http, http2, grpc or tcp."
+  }
+
+  validation {
+    condition = alltrue(concat(
+      [for name in keys(var.task_definition_template.additional_ports) : can(regex("^[a-z][a-z0-9_-]{0,63}$", name)) && name != "default"],
+      flatten([for s in var.task_definition_template.sidecars : [for name in keys(s.additional_ports) : can(regex("^[a-z][a-z0-9_-]{0,63}$", name))]]),
+      [for s in var.task_definition_template.sidecars : s.port == null ? true : can(regex("^[a-z][a-z0-9_-]{0,63}$", "${s.name}-${s.port}-tcp"))],
+    ))
+    error_message = "task_definition_template: port mapping names must start with a lowercase letter and contain only lowercase letters, digits, hyphens and underscores, up to 64 characters. That covers additional_ports keys, and the <name>-<port>-tcp name of a sidecar with a port, so such a sidecar's name must be lowercase. The application's additional_ports cannot use \"default\", which is its main port's name."
+  }
+
+  validation {
+    condition     = var.task_definition_template.fluent_bit_collector == null ? true : (trimspace(var.task_definition_template.fluent_bit_collector.image_name) != "" || var.task_definition_template.fluent_bit_collector.image != null)
+    error_message = "task_definition_template.fluent_bit_collector needs image_name or image; leave it null to run without fluent-bit."
   }
 
   validation {

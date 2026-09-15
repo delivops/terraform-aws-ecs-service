@@ -329,7 +329,17 @@ resource "aws_ecs_task_definition" "template" {
 
     precondition {
       condition     = length(distinct(local.tdt_container_names)) == length(local.tdt_container_names)
-      error_message = "task_definition_template: container names must be unique across the application container, the generated init, fluent-bit and otel-collector containers, sidecars (and their <name>-secret-init containers) and container_definitions."
+      error_message = "task_definition_template: container names must be unique across the application container, the generated init, fluent-bit and otel-collector containers, sidecars (and their <name>-secret-init containers) and container_definitions, and every container in container_definitions needs a name."
+    }
+
+    precondition {
+      condition     = alltrue([for name in keys(var.task_definition_template.container_overrides) : contains(local.tdt_generated_containers[*].name, name)])
+      error_message = "task_definition_template.container_overrides: every key must name a generated container (${join(", ", local.tdt_generated_containers[*].name)})."
+    }
+
+    precondition {
+      condition     = length(distinct(local.tdt_port_mapping_names)) == length(local.tdt_port_mapping_names)
+      error_message = "task_definition_template: port mapping names must be unique across the task: the application's \"default\" and additional_ports, otel-collector-4317-tcp and otel-collector-4318-tcp, and each sidecar's <name>-<port>-tcp and additional_ports."
     }
 
     precondition {

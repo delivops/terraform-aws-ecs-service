@@ -47,7 +47,11 @@ the squash commit; without one the release workflow defaults to a patch bump.
   - `secrets` and `secrets_envs` aren't both set on one container.
   - Sidecar names are valid and don't use the reserved `default`.
   - A sidecar's `memory_reservation` doesn't exceed its `memory`.
-  - Container and volume names are unique.
+  - Container, volume and port mapping names are unique, and port mapping
+    names follow ECS's naming rules.
+  - `app_protocol` is `http`, `http2`, `grpc` or `tcp`.
+  - Every `container_overrides` key names a generated container.
+  - `fluent_bit_collector` has an image.
   - `replica_count` is a non-negative whole number.
 
   The template is replaced with `create_before_destroy`, so the family always

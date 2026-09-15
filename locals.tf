@@ -121,5 +121,5 @@ locals {
   # deprecated in one provider major and absent in the other.
   tdt_region       = split(":", data.aws_ecs_cluster.ecs_cluster.arn)[3]
   tdt_log_group    = aws_cloudwatch_log_group.ecs_log_group.name
-  tdt_ecr_registry = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${local.tdt_region}.amazonaws.com"
+  tdt_ecr_registry = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${local.tdt_region}.${split(":", data.aws_ecs_cluster.ecs_cluster.arn)[1] == "aws-cn" ? "amazonaws.com.cn" : "amazonaws.com"}"
 }

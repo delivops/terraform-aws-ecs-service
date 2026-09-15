@@ -106,16 +106,20 @@ and volumes behind `secret_files` and `writable_dirs`.
 | `secret_files` | An `init-container-for-secret-files` container that downloads each secret to `secrets_files_path` on the `shared-volume` volume, and a `SUCCESS` dependency on it. |
 | `readonly_root_filesystem`, `writable_dirs` | `readonlyRootFilesystem`, and a `writable-<path>` volume mounted per directory. Both apply to every container the application owns: its init container, fluent-bit and otel-collector. |
 | `otel_collector` | An `otel-collector` container on ports 4317 (gRPC) and 4318. With no `image_name` or `image`, it runs the public ADOT image with its config read from the SSM parameter `ssm_name`. |
-| `fluent_bit_collector` | With `image_name` or `image`, a `fluent-bit` container. The application logs through FireLens and waits for it to start. |
+| `fluent_bit_collector` | A `fluent-bit` container from `image_name` or `image`, one of which is required. The application logs through FireLens and waits for it to start. `ecs_log_metadata` is a bool. |
 | `sidecars` | One container each, with its own copy of the keys above, isolated from the application. A sidecar's `secret_files` get a `<name>-secret-init` container and a `<name>-secrets` volume; its `writable_dirs` get `<name>-writable-<path>` volumes. `readonly_root_filesystem` falls back to the application's value. Logs go to the stream prefix `log_stream_prefix`, which defaults to the sidecar's name. |
 | `volumes` | Extra task volumes (`host_path` or `efs_volume_configuration`), alongside the generated ones. |
 | `container_definitions` | Extra containers in ECS API shape, appended as-is. |
-| `container_overrides` | Container name ⇒ ECS API fields merged over that generated container (e.g. `ulimits`, `dockerLabels`). |
+| `container_overrides` | Container name ⇒ ECS API fields merged over that generated container (e.g. `ulimits`, `dockerLabels`). Every key must name a generated container. |
 
 `image_name` on either collector is a repository in the deploying account's ECR
-registry; `image` is a full image reference. Container and volume names must be
-unique across everything generated and supplied, and plans fail when they
-aren't.
+registry; `image` is a full image reference. Plans fail on the mistakes ECS would
+otherwise reject at registration:
+- Container, volume and port mapping names must be unique across the task.
+- Port mapping names follow ECS's rules: lowercase, starting with a letter, at
+  most 64 characters. That covers `additional_ports` keys and a sidecar's
+  `<name>-<port>-tcp`, so a sidecar with a `port` needs a lowercase name.
+- `app_protocol` is `http`, `http2`, `grpc` or `tcp`.
 
 Coming from the action's YAML:
 
