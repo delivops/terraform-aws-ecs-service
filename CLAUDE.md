@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A published Terraform module (`delivops/ecs-service/aws`) that provisions an ECS
-service. There is no application code, no test suite, and no way to run anything
-against AWS from this repo — verification is `fmt`, `validate`, and reasoning.
+service. There is no application code and no way to run anything against AWS
+from this repo — verification is `fmt`, `validate`, the mocked-provider
+`terraform test` suites in `tests/`, and reasoning.
 
 ## Commands
 
@@ -20,7 +21,14 @@ terraform fmt -check -recursive          # whole repo
 terraform init -backend=false && terraform validate                      # module
 cd examples     && terraform init -backend=false && terraform validate    # examples
 cd examples/gpu && terraform init -backend=false && terraform validate    # separate root
+
+terraform test                            # module root; tests/*.tftest.hcl
 ```
+
+`tests/` mocks the AWS provider (`mock_provider`), so it needs no credentials.
+It covers `task_definition_template`: the rendered containers, and one plan per
+validation or precondition with `expect_failures`, each next to a passing case.
+A new check needs both.
 
 CI pins Terraform 1.9.8; `versions.tf` requires `>= 1.9`.
 
@@ -29,7 +37,8 @@ CI pins Terraform 1.9.8; `versions.tf` requires `>= 1.9`.
 There are no credentials here, so `terraform plan` against the real module fails
 on the AWS provider before reaching anything useful, and `terraform validate`
 does **not** load variable values — variable `validation` blocks never fire under
-it. Neither proves much on its own.
+it. Neither proves much on its own. `terraform test` with the mocked provider in
+`tests/` gets past both: it plans the whole module with real variable values.
 
 What works: build a **provider-free root** in a scratch directory that extracts
 the expressions under test *verbatim from the shipped files*, then drive it with
