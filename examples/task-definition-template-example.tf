@@ -46,9 +46,13 @@ module "template_ecs_service" {
           Resource = [var.database_secret_arn]
         },
         {
-          Effect   = "Allow"
-          Action   = ["ssm:GetParameters"]
-          Resource = ["arn:aws:ssm:*:*:parameter/template-app/*"]
+          Effect = "Allow"
+          Action = ["ssm:GetParameters"]
+          Resource = [
+            "arn:aws:ssm:*:*:parameter/template-app/*",
+            # otel_collector's default config, injected into the collector.
+            "arn:aws:ssm:*:*:parameter/adot-config-global.yaml",
+          ]
         }
       ]
     })
