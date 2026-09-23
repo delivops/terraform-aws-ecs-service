@@ -346,6 +346,31 @@ resource "aws_ecs_task_definition" "template" {
       condition     = length(distinct(local.tdt_volumes[*].name)) == length(local.tdt_volumes)
       error_message = "task_definition_template: volume names must be unique across the generated volumes (shared-volume, writable-*, <sidecar>-secrets, <sidecar>-writable-*) and volumes."
     }
+
+    precondition {
+      condition     = alltrue([for v in local.tdt_volumes : can(regex("^[a-zA-Z0-9][a-zA-Z0-9_-]{0,254}$", v.name))])
+      error_message = "task_definition_template: volume names must start with a letter or digit and contain only letters, digits, hyphens and underscores. A writable_dirs path becomes a volume name with its slashes turned into hyphens, so it cannot contain other characters such as dots. Invalid: ${join(", ", [for v in local.tdt_volumes : v.name if !can(regex("^[a-zA-Z0-9][a-zA-Z0-9_-]{0,254}$", v.name))])}."
+    }
+
+    precondition {
+      condition     = !contains(["awsvpc", "host"], var.network_mode) || length(local.tdt_duplicate_container_ports) == 0
+      error_message = "task_definition_template: with network_mode \"${var.network_mode}\" every container shares one network namespace, so two containers cannot use the same container port. Used by more than one container: ${join(", ", local.tdt_duplicate_container_ports)}."
+    }
+
+    precondition {
+      condition     = length(local.tdt_missing_lb_ports) == 0
+      error_message = "task_definition_template: the service's load balancers forward to container port(s) ${join(", ", local.tdt_missing_lb_ports)} of ${var.container_name}, which the template does not map. Set task_definition_template.port or an additional_ports entry to each load balancer's container_port."
+    }
+
+    precondition {
+      condition     = length(local.tdt_missing_service_connect_ports) == 0
+      error_message = "task_definition_template: Service Connect (client-server) advertises port mapping(s) ${join(", ", local.tdt_missing_service_connect_ports)} of ${var.container_name}, which the template does not have. \"default\" is task_definition_template.port; each service_connect.additional_ports name must be a key of task_definition_template.additional_ports."
+    }
+
+    precondition {
+      condition     = !local.tdt_service_connect_server || local.tdt_app_default_protocol == null ? true : (local.tdt_app_default_protocol == "tcp") == (var.service_connect.appProtocol == "tcp")
+      error_message = "task_definition_template: service_connect.appProtocol is \"${var.service_connect.appProtocol}\" but the template's default port mapping has app_protocol \"${coalesce(local.tdt_app_default_protocol, "none")}\". Use app_protocol = \"tcp\" with a tcp Service Connect service, and http, http2 or grpc with an http one."
+    }
   }
 }
 

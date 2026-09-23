@@ -149,9 +149,13 @@ locals {
             [for name, value_from in s.secrets_value_from : { name = name, valueFrom = value_from }],
           )
           stopTimeout = s.stop_timeout
+          # FireLens routing needs no options, and an empty options map that ECS
+          # returns without would read as drift on every plan.
           logConfiguration = {
-            logDriver = s.firelens ? "awsfirelens" : "awslogs"
-            options   = { for k, v in merge(local.tdt_log_options, { "awslogs-stream-prefix" = s.log_stream_prefix }) : k => v if !s.firelens }
+            for k, v in {
+              logDriver = s.firelens ? "awsfirelens" : "awslogs"
+              options   = s.firelens ? null : merge(local.tdt_log_options, { "awslogs-stream-prefix" = s.log_stream_prefix })
+            } : k => v if v != null
           }
           healthCheck = try(s.health_check.command, null) == null ? null : (s.health_check.command == "" ? null : {
             command     = ["CMD-SHELL", s.health_check.command]
@@ -307,6 +311,42 @@ locals {
   tdt_port_mapping_names = flatten([
     for c in local.tdt_generated_containers : [for p in try(c.portMappings, []) : p.name]
   ])
+
+  # Container ports, once per container: under awsvpc and host every container
+  # shares one network namespace, so two containers cannot bind the same port.
+  tdt_container_ports = flatten([
+    for c in local.tdt_container_definitions : distinct([
+      for p in try(c.portMappings, []) : p.containerPort if try(p.containerPort, null) != null
+    ])
+  ])
+  tdt_duplicate_container_ports = distinct([
+    for p in local.tdt_container_ports : p if length([for q in local.tdt_container_ports : q if q == p]) > 1
+  ])
+
+  # The service's load balancers and Service Connect address the rendered
+  # container_name container, so a deploy copied from the template fails unless
+  # it carries their ports.
+  tdt_app_port_mappings = flatten([
+    for c in local.tdt_container_definitions : try(c.portMappings, []) if try(c.name, "") == var.container_name
+  ])
+  tdt_app_container_ports = [for p in local.tdt_app_port_mappings : try(p.containerPort, null)]
+  tdt_app_port_names      = [for p in local.tdt_app_port_mappings : try(p.name, null)]
+  tdt_app_default_protocol = concat(
+    [for p in local.tdt_app_port_mappings : try(p.appProtocol, "tcp") if try(p.name, null) == "default"],
+    [null],
+  )[0]
+
+  tdt_lb_container_ports = concat(
+    [for alb in [var.application_load_balancer] : alb.container_port if alb.enabled && alb.action_type == "forward"],
+    [for alb in var.additional_load_balancers : alb.container_port if alb.enabled && alb.action_type == "forward"],
+  )
+  tdt_missing_lb_ports = [for p in local.tdt_lb_container_ports : p if !contains(local.tdt_app_container_ports, p)]
+
+  tdt_service_connect_server = var.service_connect.enabled && var.service_connect.type == "client-server"
+  tdt_missing_service_connect_ports = [
+    for name in concat(["default"], var.service_connect.additional_ports[*].name) :
+    name if local.tdt_service_connect_server && !contains(local.tdt_app_port_names, name)
+  ]
 
   tdt_volumes = concat(
     [for files in [local.tdt.secret_files] : { name = "shared-volume", host_path = null, efs_volume_configuration = null } if length(files) > 0],

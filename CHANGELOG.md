@@ -47,12 +47,27 @@ the squash commit; without one the release workflow defaults to a patch bump.
   - `secrets` and `secrets_envs` aren't both set on one container.
   - Sidecar names are valid and don't use the reserved `default`.
   - A sidecar's `memory_reservation` doesn't exceed its `memory`.
-  - Container, volume and port mapping names are unique, and port mapping
-    names follow ECS's naming rules.
+  - Container, volume and port mapping names are unique, port mapping names
+    follow ECS's naming rules, and volume names use valid characters.
   - `app_protocol` is `http`, `http2`, `grpc` or `tcp`.
   - Every `container_overrides` key names a generated container.
   - `fluent_bit_collector` has an image.
   - `replica_count` is a non-negative whole number.
+  - Under `awsvpc` and `host`, no two containers use the same container port.
+  - The template carries the ports the service's load balancers and Service
+    Connect (`client-server`) address, with a matching Service Connect
+    protocol.
+  - `secrets` values and `secrets_envs` ids are full secret ARNs, and
+    `secret_files` have a task role to be read with.
+  - On Fargate: `cpu` and `memory` are a supported combination, sidecars leave
+    room for the application, and `ephemeral_storage_gib` is 21–200 (it is
+    rejected on EC2).
+
+  The ECR registry for collector images is the cluster's account, read from the
+  cluster ARN.
+
+  Tests: `tests/` holds `terraform test` suites against a mocked AWS provider,
+  run in CI.
 
   The template is replaced with `create_before_destroy`, so the family always
   has an ACTIVE revision during an apply.

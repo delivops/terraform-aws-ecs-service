@@ -392,15 +392,17 @@ variable "task_definition_template" {
       `readonly_root_filesystem`.
     - `otel_collector`: set (even to {}) to add the collector. Without
       `image_name`/`image` it runs the public ADOT image with its config read
-      from the SSM parameter `ssm_name`.
+      from the SSM parameter `ssm_name`, which the execution role must be
+      allowed to read.
     - `fluent_bit_collector`: adds fluent-bit from `image_name` or `image` (one
       is required) and routes the application's logs through FireLens.
-    - `image_name` on either collector is a repository in this account's ECR
-      registry; `image` is a full image reference.
+    - `image_name` on either collector is a repository in the ECR registry of
+      the cluster's account; `image` is a full image reference.
     - `volumes`: extra task volumes, alongside the generated ones.
     - `container_definitions`: extra containers in ECS API shape, appended as-is.
     - `container_overrides`: generated container name => ECS API fields merged
-      over it, for anything the keys above don't cover.
+      over it, for anything the keys above don't cover. The merge is top-level:
+      a list such as `environment` replaces the generated one.
     - `replica_count`: published to SSM for the pipeline to set the service's
       desired count on deploy. Leave null for autoscaled services.
 
@@ -624,5 +626,49 @@ variable "task_definition_template" {
   validation {
     condition     = var.task_definition_template.replica_count == null ? true : var.task_definition_template.replica_count >= 0 && floor(var.task_definition_template.replica_count) == var.task_definition_template.replica_count
     error_message = "task_definition_template.replica_count must be a non-negative whole number."
+  }
+
+  validation {
+    condition = !var.task_definition_template.enabled || var.task_role.create || var.task_role.arn != "" || alltrue(concat(
+      [length(var.task_definition_template.secret_files) == 0],
+      [for s in var.task_definition_template.sidecars : length(s.secret_files) == 0 || !s.enabled],
+    ))
+    error_message = "task_definition_template: secret_files are downloaded from inside the task with the task role, so they need one (task_role.create or task_role.arn)."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for c in concat([var.task_definition_template], var.task_definition_template.sidecars) : concat(
+        [for arn in values(c.secrets) : startswith(arn, "arn:")],
+        [for group in c.secrets_envs : startswith(group.id, "arn:")],
+      )
+    ]))
+    error_message = "task_definition_template: secrets values and secrets_envs ids must be full Secrets Manager secret ARNs; ECS only reads a JSON key (<arn>:<key>::) from an ARN. Use secrets_value_from for anything else."
+  }
+
+  validation {
+    condition = !var.task_definition_template.enabled || var.ecs_launch_type != "FARGATE" || var.task_definition_template.cpu == null || var.task_definition_template.memory == null ? true : contains(try({
+      "256"   = [512, 1024, 2048]
+      "512"   = range(1024, 4097, 1024)
+      "1024"  = range(2048, 8193, 1024)
+      "2048"  = range(4096, 16385, 1024)
+      "4096"  = range(8192, 30721, 1024)
+      "8192"  = range(16384, 61441, 4096)
+      "16384" = range(32768, 122881, 8192)
+    }[tostring(var.task_definition_template.cpu)], []), var.task_definition_template.memory)
+    error_message = "task_definition_template: cpu and memory must be a combination Fargate supports: cpu 256 (memory 512, 1024, 2048), 512 (1024-4096 in steps of 1024), 1024 (2048-8192, steps of 1024), 2048 (4096-16384, steps of 1024), 4096 (8192-30720, steps of 1024), 8192 (16384-61440, steps of 4096) or 16384 (32768-122880, steps of 8192)."
+  }
+
+  validation {
+    condition = !var.task_definition_template.enabled || var.ecs_launch_type != "FARGATE" || var.task_definition_template.cpu == null || var.task_definition_template.memory == null ? true : (
+      sum(concat([0], [for s in var.task_definition_template.sidecars : s.cpu if s.enabled && s.cpu != null])) < var.task_definition_template.cpu &&
+      sum(concat([0], [for s in var.task_definition_template.sidecars : s.memory if s.enabled && s.memory != null])) < var.task_definition_template.memory
+    )
+    error_message = "task_definition_template.sidecars: on Fargate the sidecars' cpu and memory must each total less than the task's, to leave room for the application container."
+  }
+
+  validation {
+    condition     = var.task_definition_template.ephemeral_storage_gib == null ? true : var.ecs_launch_type == "FARGATE" && var.task_definition_template.ephemeral_storage_gib >= 21 && var.task_definition_template.ephemeral_storage_gib <= 200
+    error_message = "task_definition_template.ephemeral_storage_gib is only supported on Fargate, from 21 to 200 GiB."
   }
 }
