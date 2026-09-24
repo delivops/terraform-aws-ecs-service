@@ -14,8 +14,9 @@ module "template_ecs_service" {
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
 
-  # A placeholder: the pipeline replaces it with the build it deploys.
-  container_image = "template-app:template"
+  # container_image is left at its default, a pullable image: a new service runs
+  # it until the first deploy, and the pipeline replaces it in every copy of the
+  # template.
 
   task_role = {
     create = true

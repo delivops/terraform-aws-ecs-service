@@ -375,9 +375,10 @@ variable "task_definition_template" {
     the task config YAML of delivops/ecs-deploy-action: the `container_name`
     container, a secret-file init container, the fluent-bit and otel-collector
     containers, and `sidecars`. Log configuration points at the module's log
-    group. The image of `container_name` is `container_image`, a placeholder the
-    pipeline replaces. The task and execution roles, network mode and launch
-    type come from the module's own inputs.
+    group. The image of `container_name` is `container_image`, which the
+    pipeline replaces. A new service also starts on `container_image` before
+    its first deploy, so it must be pullable. The task and execution roles,
+    network mode and launch type come from the module's own inputs.
 
     - `envs`: environment variables.
     - `secrets`: env var name => Secrets Manager secret ARN; the variable takes
