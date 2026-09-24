@@ -114,4 +114,14 @@ locals {
   ]
 
   container_definitions_json = jsonencode(local.container_definitions)
+
+  # Inputs to the task definition template's container builder
+  # (task_definition_template.tf) that come from outside the variable. The
+  # partition, region and account are read from the cluster ARN because
+  # aws_region's attribute for the region is deprecated in one provider major
+  # and absent in the other.
+  tdt_cluster_arn  = split(":", data.aws_ecs_cluster.ecs_cluster.arn)
+  tdt_region       = local.tdt_cluster_arn[3]
+  tdt_log_group    = aws_cloudwatch_log_group.ecs_log_group.name
+  tdt_ecr_registry = "${local.tdt_cluster_arn[4]}.dkr.ecr.${local.tdt_region}.${local.tdt_cluster_arn[1] == "aws-cn" ? "amazonaws.com.cn" : "amazonaws.com"}"
 }

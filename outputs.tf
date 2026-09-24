@@ -39,6 +39,11 @@ output "ssm_execution_role_parameter_name" {
   value       = length(aws_ssm_parameter.execution_role) > 0 ? aws_ssm_parameter.execution_role[0].name : null
 }
 
+output "ssm_task_definition_template_parameter_name" {
+  description = "Name of the SSM parameter holding the task definition template family (null unless task_definition_template.enabled)."
+  value       = length(aws_ssm_parameter.task_definition_template) > 0 ? aws_ssm_parameter.task_definition_template[0].name : null
+}
+
 output "route53_records" {
   description = "Route53 DNS records created"
   value = {
@@ -84,4 +89,19 @@ output "log_anomaly_detector_arn" {
 output "log_anomaly_detector_name" {
   description = "Name of the CloudWatch Logs Anomaly Detector (if enabled)"
   value       = var.log_anomaly_detection.enabled ? aws_cloudwatch_log_anomaly_detector.this[0].detector_name : null
+}
+
+output "task_definition_template_family" {
+  description = "Family of the Terraform-managed task definition template (null unless task_definition_template.enabled)."
+  value       = var.task_definition_template.enabled ? aws_ecs_task_definition.template[0].family : null
+}
+
+output "task_definition_template_arn" {
+  description = "ARN of the latest task definition template revision (null unless task_definition_template.enabled)."
+  value       = var.task_definition_template.enabled ? aws_ecs_task_definition.template[0].arn : null
+}
+
+output "ssm_replica_count_parameter_name" {
+  description = "Name of the SSM parameter holding the desired count for the deploy pipeline (null unless task_definition_template.enabled and replica_count is set)."
+  value       = length(aws_ssm_parameter.task_definition_template_replica_count) > 0 ? aws_ssm_parameter.task_definition_template_replica_count[0].name : null
 }
