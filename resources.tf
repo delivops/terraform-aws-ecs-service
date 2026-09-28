@@ -265,6 +265,115 @@ resource "aws_ecs_task_definition" "task_definition" {
   }
 }
 
+resource "aws_ecs_task_definition" "template" {
+  count = var.task_definition_template.enabled ? 1 : 0
+
+  family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}${var.task_definition_template.family_suffix}"
+  network_mode             = var.network_mode
+  requires_compatibilities = [var.ecs_launch_type]
+  cpu                      = var.task_definition_template.cpu
+  memory                   = var.task_definition_template.memory
+  task_role_arn            = local.task_role_arn
+  execution_role_arn       = local.execution_role_arn
+  container_definitions    = jsonencode(local.tdt_container_definitions)
+  tags                     = local.common_tags
+
+  # EC2 tasks run on whatever the instance is, so the platform is only declared
+  # for Fargate.
+  dynamic "runtime_platform" {
+    for_each = var.ecs_launch_type == "FARGATE" ? [1] : []
+    content {
+      cpu_architecture        = var.task_definition_template.cpu_architecture
+      operating_system_family = var.task_definition_template.operating_system_family
+    }
+  }
+
+  dynamic "ephemeral_storage" {
+    for_each = var.task_definition_template.ephemeral_storage_gib != null ? [1] : []
+    content {
+      size_in_gib = var.task_definition_template.ephemeral_storage_gib
+    }
+  }
+
+  dynamic "volume" {
+    for_each = local.tdt_volumes
+    content {
+      name      = volume.value.name
+      host_path = volume.value.host_path
+
+      dynamic "efs_volume_configuration" {
+        for_each = volume.value.efs_volume_configuration != null ? [volume.value.efs_volume_configuration] : []
+        content {
+          file_system_id          = efs_volume_configuration.value.file_system_id
+          root_directory          = efs_volume_configuration.value.root_directory
+          transit_encryption      = efs_volume_configuration.value.transit_encryption
+          transit_encryption_port = efs_volume_configuration.value.transit_encryption_port
+
+          dynamic "authorization_config" {
+            for_each = efs_volume_configuration.value.authorization_config != null ? [efs_volume_configuration.value.authorization_config] : []
+            content {
+              access_point_id = authorization_config.value.access_point_id
+              iam             = authorization_config.value.iam
+            }
+          }
+        }
+      }
+    }
+  }
+
+  # Every change replaces the revision. Registering the new one before the old
+  # is deregistered means the family always has an ACTIVE revision for a
+  # deploy that reads it mid-apply.
+  lifecycle {
+    create_before_destroy = true
+
+    precondition {
+      condition     = length(distinct(local.tdt_container_names)) == length(local.tdt_container_names)
+      error_message = "task_definition_template: container names must be unique across the application container, the generated init, fluent-bit and otel-collector containers, sidecars (and their <name>-secret-init containers) and container_definitions, and every container in container_definitions needs a name."
+    }
+
+    precondition {
+      condition     = alltrue([for name in keys(var.task_definition_template.container_overrides) : contains(local.tdt_generated_containers[*].name, name)])
+      error_message = "task_definition_template.container_overrides: every key must name a generated container (${join(", ", local.tdt_generated_containers[*].name)})."
+    }
+
+    precondition {
+      condition     = length(distinct(local.tdt_port_mapping_names)) == length(local.tdt_port_mapping_names)
+      error_message = "task_definition_template: port mapping names must be unique across the task: the application's \"default\" and additional_ports, otel-collector-4317-tcp and otel-collector-4318-tcp, and each sidecar's <name>-<port>-tcp and additional_ports."
+    }
+
+    precondition {
+      condition     = length(distinct(local.tdt_volumes[*].name)) == length(local.tdt_volumes)
+      error_message = "task_definition_template: volume names must be unique across the generated volumes (shared-volume, writable-*, <sidecar>-secrets, <sidecar>-writable-*) and volumes."
+    }
+
+    precondition {
+      condition     = alltrue([for v in local.tdt_volumes : can(regex("^[a-zA-Z0-9][a-zA-Z0-9_-]{0,254}$", v.name))])
+      error_message = "task_definition_template: volume names must start with a letter or digit and contain only letters, digits, hyphens and underscores. A writable_dirs path becomes a volume name with its slashes turned into hyphens, so it cannot contain other characters such as dots. Invalid: ${join(", ", [for v in local.tdt_volumes : v.name if !can(regex("^[a-zA-Z0-9][a-zA-Z0-9_-]{0,254}$", v.name))])}."
+    }
+
+    precondition {
+      condition     = !contains(["awsvpc", "host"], var.network_mode) || length(local.tdt_duplicate_container_ports) == 0
+      error_message = "task_definition_template: with network_mode \"${var.network_mode}\" every container shares one network namespace, so two containers cannot use the same container port. Used by more than one container: ${join(", ", local.tdt_duplicate_container_ports)}."
+    }
+
+    precondition {
+      condition     = length(local.tdt_missing_lb_ports) == 0
+      error_message = "task_definition_template: the service's load balancers forward to container port(s) ${join(", ", local.tdt_missing_lb_ports)} of ${var.container_name}, which the template does not map. Set task_definition_template.port or an additional_ports entry to each load balancer's container_port."
+    }
+
+    precondition {
+      condition     = length(local.tdt_missing_service_connect_ports) == 0
+      error_message = "task_definition_template: Service Connect (client-server) advertises port mapping(s) ${join(", ", local.tdt_missing_service_connect_ports)} of ${var.container_name}, which the template does not have. \"default\" is task_definition_template.port; each service_connect.additional_ports name must be a key of task_definition_template.additional_ports."
+    }
+
+    precondition {
+      condition     = !local.tdt_service_connect_server || local.tdt_app_default_protocol == null ? true : (local.tdt_app_default_protocol == "tcp") == (var.service_connect.appProtocol == "tcp")
+      error_message = "task_definition_template: service_connect.appProtocol is \"${var.service_connect.appProtocol}\" but the template's default port mapping has app_protocol \"${coalesce(local.tdt_app_default_protocol, "none")}\". Use app_protocol = \"tcp\" with a tcp Service Connect service, and http, http2 or grpc with an http one."
+    }
+  }
+}
+
 resource "aws_ecs_service" "ecs_service" {
   name                               = var.ecs_service_name
   cluster                            = data.aws_ecs_cluster.ecs_cluster.id

@@ -31,3 +31,8 @@ variable "route_53_zone_id" {
   type        = string
   default     = ""
 }
+
+variable "database_secret_arn" {
+  description = "ARN of a Secrets Manager secret holding the database credentials as JSON keys"
+  type        = string
+}

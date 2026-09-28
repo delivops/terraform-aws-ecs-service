@@ -28,6 +28,10 @@ jobs:
           terraform init -backend=false -input=false
           terraform validate
 
+      # tests/ mocks the AWS provider, so no credentials are needed.
+      - name: Test module
+        run: terraform test
+
       - name: Validate examples
         working-directory: examples
         run: |
