@@ -229,6 +229,21 @@ variable "deployment" {
   default = {}
 
 }
+
+variable "health_check_grace_period_seconds" {
+  description = "Seconds after a task starts during which the service scheduler ignores failing load balancer, VPC Lattice and container health checks, so a slow-starting task is not stopped before it is ready. Null leaves it unset (0)."
+  type        = number
+  default     = null
+
+  validation {
+    condition = var.health_check_grace_period_seconds == null ? true : (
+      var.health_check_grace_period_seconds >= 0 &&
+      var.health_check_grace_period_seconds <= 2147483647 &&
+      floor(var.health_check_grace_period_seconds) == var.health_check_grace_period_seconds
+    )
+    error_message = "health_check_grace_period_seconds must be a whole number from 0 to 2147483647."
+  }
+}
 variable "capacity_provider_strategy" {
   description = "Name of an existing ECS capacity provider for the service. When set, the service uses it instead of a plain launch_type. Leave empty to use ecs_launch_type directly."
   type        = string
