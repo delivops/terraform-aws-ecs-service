@@ -8,6 +8,14 @@ Releases are cut automatically from conventional-commit messages on merge to
 `main`. A breaking change requires `feat!:` or a `BREAKING CHANGE:` footer in
 the squash commit; without one the release workflow defaults to a patch bump.
 
+## [3.3.0]
+
+### Added
+
+- **`health_check_grace_period_seconds`**: seconds after a task starts during
+  which the service scheduler ignores failing load balancer, VPC Lattice and
+  container health checks. Defaults to null, which leaves the service as it is.
+
 ## [3.2.0]
 
 ### Added

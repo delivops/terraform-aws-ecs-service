@@ -381,6 +381,7 @@ resource "aws_ecs_service" "ecs_service" {
   desired_count                      = var.desired_count
   deployment_minimum_healthy_percent = var.deployment.min_healthy_percent
   deployment_maximum_percent         = var.deployment.max_healthy_percent
+  health_check_grace_period_seconds  = var.health_check_grace_period_seconds
 
   enable_execute_command = var.enable_execute_command
   launch_type            = var.capacity_provider_strategy == "" ? var.ecs_launch_type : null
