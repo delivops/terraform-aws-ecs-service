@@ -357,6 +357,33 @@ resource "cloudflare_record" "api" {
 }
 ```
 
+## Sign-in at the load balancer
+
+The main listener rule can make users sign in (Amazon Cognito) before it forwards, and programs that carry their own
+credentials can keep paths that skip the sign-in. Both need an explicit rule priority: the unauthenticated rule takes
+it, the signed-in rule the next one.
+
+```hcl
+application_load_balancer = {
+  enabled                = true
+  listener_arn           = aws_lb_listener.https.arn
+  host                   = "app.example.com"
+  listener_rule_priority = 10
+  authenticate_cognito = {
+    user_pool_arn       = aws_cognito_user_pool.app.arn
+    user_pool_client_id = aws_cognito_user_pool_client.alb.id
+    user_pool_domain    = aws_cognito_user_pool_domain.app.domain
+    # session_timeout = 604800, on_unauthenticated_request = "authenticate", scope = "openid"
+  }
+  # at most 4 with a host (an ALB rule takes 5 condition values)
+  unauthenticated_paths = ["/webhooks/*", "/health"]
+}
+```
+
+The target receives the `x-amzn-oidc-data`, `x-amzn-oidc-identity` and `x-amzn-oidc-accesstoken` headers. The ALB
+calls Cognito's endpoints, so its security group needs HTTPS egress to them. Leaving all three inputs unset keeps
+the rule exactly as before (forward only, AWS-assigned priority).
+
 ## Task and execution roles
 
 The two roles do different jobs, so the module configures them separately.

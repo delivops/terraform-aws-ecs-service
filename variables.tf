@@ -47,8 +47,32 @@ variable "application_load_balancer" {
     target_group_name                = optional(string, "")
     deregister_deregistration_delay  = optional(number, 60)
     route_53_host_zone_id            = optional(string, "")
+    # the listener rule's priority (unset: AWS picks the next free one). With unauthenticated_paths, that rule takes
+    # this priority and the main rule the next one
+    listener_rule_priority = optional(number)
+    # sign-in at the ALB (Cognito) before the main rule forwards; the target gets the x-amzn-oidc-* headers
+    authenticate_cognito = optional(object({
+      user_pool_arn              = string
+      user_pool_client_id        = string
+      user_pool_domain           = string
+      session_timeout            = optional(number, 604800)
+      on_unauthenticated_request = optional(string, "authenticate")
+      scope                      = optional(string, "openid")
+    }))
+    # paths forwarded without the sign-in (programs with their own credentials: webhooks, agents, health)
+    unauthenticated_paths = optional(list(string), [])
   })
   default = {}
+
+  validation {
+    condition     = length(var.application_load_balancer.unauthenticated_paths) == 0 || (var.application_load_balancer.authenticate_cognito != null && var.application_load_balancer.listener_rule_priority != null)
+    error_message = "application_load_balancer.unauthenticated_paths needs authenticate_cognito and listener_rule_priority (its rule must come before the signed-in one)."
+  }
+
+  validation {
+    condition     = length(var.application_load_balancer.unauthenticated_paths) <= (length(var.application_load_balancer.host) > 0 ? 4 : 5)
+    error_message = "application_load_balancer.unauthenticated_paths: an ALB rule takes at most 5 condition values, the host included (so at most 4 paths with a host)."
+  }
 }
 
 variable "additional_load_balancers" {
