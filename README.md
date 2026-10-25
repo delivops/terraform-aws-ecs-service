@@ -357,6 +357,33 @@ resource "cloudflare_record" "api" {
 }
 ```
 
+## Sign-in at the load balancer
+
+The main listener rule can make users sign in (Amazon Cognito) before it forwards, and programs that carry their own
+credentials can keep paths that skip the sign-in. Both need an explicit rule priority: the unauthenticated rule takes
+it, the signed-in rule the next one.
+
+```hcl
+application_load_balancer = {
+  enabled                = true
+  listener_arn           = aws_lb_listener.https.arn
+  host                   = "app.example.com"
+  listener_rule_priority = 10
+  authenticate_cognito = {
+    user_pool_arn       = aws_cognito_user_pool.app.arn
+    user_pool_client_id = aws_cognito_user_pool_client.alb.id
+    user_pool_domain    = aws_cognito_user_pool_domain.app.domain
+    # session_timeout = 604800, on_unauthenticated_request = "authenticate", scope = "openid"
+  }
+  # at most 4 with a host (an ALB rule takes 5 condition values)
+  unauthenticated_paths = ["/webhooks/*", "/health"]
+}
+```
+
+The target receives the `x-amzn-oidc-data`, `x-amzn-oidc-identity` and `x-amzn-oidc-accesstoken` headers. The ALB
+calls Cognito's endpoints, so its security group needs HTTPS egress to them. Leaving all three inputs unset keeps
+the rule exactly as before (forward only, AWS-assigned priority).
+
 ## Task and execution roles
 
 The two roles do different jobs, so the module configures them separately.
@@ -565,6 +592,7 @@ This module is released under the MIT License.
 | [aws_lb_listener.tcp_listener_additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
 | [aws_lb_listener_rule.rule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_lb_listener_rule.rule_additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
+| [aws_lb_listener_rule.rule_unauthenticated](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_route53_record.additional_alb_records](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
 | [aws_route53_record.main_alb_record](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
 | [aws_ssm_parameter.execution_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
@@ -583,7 +611,7 @@ This module is released under the MIT License.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_additional_load_balancers"></a> [additional\_load\_balancers](#input\_additional\_load\_balancers) | Additional load balancers configuration | <pre>list(object({<br/>    enabled                          = optional(bool, false)<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    nlb_arn                          = optional(string, "")<br/>    nlb_port                         = optional(number, 80)<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 10)<br/>    health_check_threshold_healthy   = optional(number, 2)<br/>    health_check_threshold_unhealthy = optional(number, 5)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>    health_check_port                = optional(string, "traffic-port")<br/>    stickiness                       = optional(bool, false)<br/>    stickiness_ttl                   = optional(number, 300)<br/>    stickiness_type                  = optional(string, "app_cookie")<br/>    cookie_name                      = optional(string, "")<br/>    action_type                      = optional(string, "forward")<br/>    target_group_name                = optional(string, "")<br/>    deregister_deregistration_delay  = optional(number, 60)<br/>    route_53_host_zone_id            = optional(string, "")<br/>  }))</pre> | `[]` | no |
-| <a name="input_application_load_balancer"></a> [application\_load\_balancer](#input\_application\_load\_balancer) | Primary load balancer for the service: target group, health checks, listener rule (host/path routing or fixed-response), stickiness, and an optional Route53 alias record. Set enabled = true to attach the service to an existing ALB listener, or protocol = "TCP" with nlb\_arn to have the module create an NLB listener. | <pre>object({<br/>    enabled                          = optional(bool, false)<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    nlb_arn                          = optional(string, "")<br/>    nlb_port                         = optional(number, 80)<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 10)<br/>    health_check_threshold_healthy   = optional(number, 2)<br/>    health_check_threshold_unhealthy = optional(number, 5)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>    health_check_port                = optional(string, "traffic-port")<br/>    stickiness                       = optional(bool, false)<br/>    stickiness_ttl                   = optional(number, 300)<br/>    cookie_name                      = optional(string, "")<br/>    stickiness_type                  = optional(string, "app_cookie")<br/>    action_type                      = optional(string, "forward")<br/>    target_group_name                = optional(string, "")<br/>    deregister_deregistration_delay  = optional(number, 60)<br/>    route_53_host_zone_id            = optional(string, "")<br/>  })</pre> | `{}` | no |
+| <a name="input_application_load_balancer"></a> [application\_load\_balancer](#input\_application\_load\_balancer) | Primary load balancer for the service: target group, health checks, listener rule (host/path routing or fixed-response), stickiness, and an optional Route53 alias record. Set enabled = true to attach the service to an existing ALB listener, or protocol = "TCP" with nlb\_arn to have the module create an NLB listener. | <pre>object({<br/>    enabled                          = optional(bool, false)<br/>    container_port                   = optional(number, 80)<br/>    listener_arn                     = optional(string, "")<br/>    nlb_arn                          = optional(string, "")<br/>    nlb_port                         = optional(number, 80)<br/>    host                             = optional(string, "")<br/>    path                             = optional(string, "/*")<br/>    protocol                         = optional(string, "HTTP")<br/>    health_check_path                = optional(string, "/health")<br/>    health_check_matcher             = optional(string, "200")<br/>    health_check_interval_sec        = optional(number, 30)<br/>    health_check_timeout_sec         = optional(number, 10)<br/>    health_check_threshold_healthy   = optional(number, 2)<br/>    health_check_threshold_unhealthy = optional(number, 5)<br/>    health_check_protocol            = optional(string, "HTTP")<br/>    health_check_port                = optional(string, "traffic-port")<br/>    stickiness                       = optional(bool, false)<br/>    stickiness_ttl                   = optional(number, 300)<br/>    cookie_name                      = optional(string, "")<br/>    stickiness_type                  = optional(string, "app_cookie")<br/>    action_type                      = optional(string, "forward")<br/>    target_group_name                = optional(string, "")<br/>    deregister_deregistration_delay  = optional(number, 60)<br/>    route_53_host_zone_id            = optional(string, "")<br/>    # the listener rule's priority (unset: AWS picks the next free one). With unauthenticated_paths, that rule takes<br/>    # this priority and the main rule the next one<br/>    listener_rule_priority = optional(number)<br/>    # sign-in at the ALB (Cognito) before the main rule forwards; the target gets the x-amzn-oidc-* headers<br/>    authenticate_cognito = optional(object({<br/>      user_pool_arn              = string<br/>      user_pool_client_id        = string<br/>      user_pool_domain           = string<br/>      session_timeout            = optional(number, 604800)<br/>      on_unauthenticated_request = optional(string, "authenticate")<br/>      scope                      = optional(string, "openid")<br/>    }))<br/>    # paths forwarded without the sign-in (programs with their own credentials: webhooks, agents, health)<br/>    unauthenticated_paths = optional(list(string), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_assign_public_ip"></a> [assign\_public\_ip](#input\_assign\_public\_ip) | Assign public IP to ECS tasks | `bool` | `false` | no |
 | <a name="input_capacity_provider_strategy"></a> [capacity\_provider\_strategy](#input\_capacity\_provider\_strategy) | Name of an existing ECS capacity provider for the service. When set, the service uses it instead of a plain launch\_type. Leave empty to use ecs\_launch\_type directly. | `string` | `""` | no |
 | <a name="input_container_image"></a> [container\_image](#input\_container\_image) | Docker image for the container | `string` | `"nginx:latest"` | no |

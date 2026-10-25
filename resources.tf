@@ -89,15 +89,41 @@ resource "aws_alb_target_group" "target_group_additional" {
 # Listener rules for ALB
 #########################
 
+locals {
+  alb_auth       = var.application_load_balancer.authenticate_cognito
+  alb_open_paths = var.application_load_balancer.unauthenticated_paths
+  alb_rule_priority = var.application_load_balancer.listener_rule_priority == null ? null : (
+    var.application_load_balancer.listener_rule_priority + (length(local.alb_open_paths) > 0 ? 1 : 0)
+  )
+}
+
 resource "aws_lb_listener_rule" "rule" {
   count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "HTTP" ? 1 : 0
 
   listener_arn = var.application_load_balancer.listener_arn
+  priority     = local.alb_rule_priority
+
+  dynamic "action" {
+    for_each = local.alb_auth != null ? [local.alb_auth] : []
+    content {
+      type  = "authenticate-cognito"
+      order = 1
+      authenticate_cognito {
+        user_pool_arn              = action.value.user_pool_arn
+        user_pool_client_id        = action.value.user_pool_client_id
+        user_pool_domain           = action.value.user_pool_domain
+        session_timeout            = action.value.session_timeout
+        on_unauthenticated_request = action.value.on_unauthenticated_request
+        scope                      = action.value.scope
+      }
+    }
+  }
 
   dynamic "action" {
     for_each = var.application_load_balancer.action_type == "forward" ? [1] : []
     content {
-      type = "forward"
+      type  = "forward"
+      order = local.alb_auth != null ? 2 : null
 
       forward {
         target_group {
@@ -146,6 +172,44 @@ resource "aws_lb_listener_rule" "rule" {
   tags       = local.common_tags
 }
 
+
+# the paths that skip the sign-in, ahead of the main rule
+resource "aws_lb_listener_rule" "rule_unauthenticated" {
+  count = var.application_load_balancer.enabled && var.application_load_balancer.protocol == "HTTP" && length(local.alb_open_paths) > 0 ? 1 : 0
+
+  listener_arn = var.application_load_balancer.listener_arn
+  priority     = var.application_load_balancer.listener_rule_priority
+
+  action {
+    type = "forward"
+    forward {
+      target_group {
+        arn = aws_alb_target_group.target_group[0].arn
+      }
+      stickiness {
+        enabled  = var.application_load_balancer.stickiness
+        duration = var.application_load_balancer.stickiness_ttl
+      }
+    }
+  }
+
+  dynamic "condition" {
+    for_each = length(var.application_load_balancer.host) > 0 ? [1] : []
+    content {
+      host_header {
+        values = [var.application_load_balancer.host]
+      }
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = local.alb_open_paths
+    }
+  }
+
+  tags = local.common_tags
+}
 
 resource "aws_lb_listener_rule" "rule_additional" {
   for_each = {
