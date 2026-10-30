@@ -530,7 +530,7 @@ resource "cloudflare_record" "api" {
 
 By default a service runs on one launch type, or on one capacity provider named in `capacity_provider_strategy`. To spread a service over several providers, set `capacity_provider_strategies`; to leave the choice to the cluster, set `use_cluster_default_capacity_provider_strategy`. Set at most one of the three. `capacity_provider_strategy = "X"` stays as shorthand for `[{ capacity_provider = "X", base = 0, weight = 1 }]`.
 
-Each entry has a `base` (tasks placed on that provider first; at most one entry may set it above 0, up to 100000) and a `weight` (the relative share of the tasks beyond the base, 0 to 1000, with at least one entry above 0). `FARGATE` and `FARGATE_SPOT` cannot share a list with Auto Scaling group providers. A list of only `FARGATE` and `FARGATE_SPOT` gives a Fargate task definition and `platform_version = "LATEST"` whatever `ecs_launch_type` says; a list with Auto Scaling group providers needs `ecs_launch_type = "EC2"`. With `use_cluster_default_capacity_provider_strategy`, `ecs_launch_type` still sets the task definition's compatibility, so keep it matching the cluster's providers.
+Each entry has a `base` (tasks placed on that provider first; at most one entry may set it above 0, up to 100000) and a `weight` (the relative share of the tasks beyond the base, 0 to 1000, with at least one entry above 0). `FARGATE` and `FARGATE_SPOT` cannot share a list with Auto Scaling group providers. `ecs_launch_type` must match the list, and a mismatch is rejected at plan time: a list of only `FARGATE` and `FARGATE_SPOT` needs `ecs_launch_type = "FARGATE"` (the default, so normally nothing to set), and a list with Auto Scaling group providers needs `ecs_launch_type = "EC2"`. With `use_cluster_default_capacity_provider_strategy`, `ecs_launch_type` still sets the task definition's compatibility, so keep it matching the cluster's providers.
 
 ```hcl
 # An on-demand floor of 2 tasks, then 4 of every 5 further tasks on Spot.
@@ -554,6 +554,10 @@ use_cluster_default_capacity_provider_strategy = true
 ### Spot does not fail over to on-demand
 
 ECS does **not** move work from Spot to on-demand. When Fargate Spot has no capacity, the Spot tasks stay `PENDING` until capacity returns, and the service runs below its desired count meanwhile. The `base` on `FARGATE` is the only guaranteed floor: size it to the number of tasks the service cannot do without.
+
+### Cluster default strategy: not apply-tested
+
+`use_cluster_default_capacity_provider_strategy` has only been checked with mocked plans and a read-only plan. It has not been applied against a cluster that has a default strategy. AWS provider 6.x has an open bug ([terraform-provider-aws #44776](https://github.com/hashicorp/terraform-provider-aws/issues/44776)) where the strategy ECS assigns from the cluster default shows up as drift, so a later plan can fail with `force_new_deployment should be true when capacity_provider_strategy is being updated`. If you hit it, set `force_new_deployment = true` (each update of the service then starts a new deployment) or list the providers explicitly with `capacity_provider_strategies`.
 
 ### Changing the strategy of an existing service
 

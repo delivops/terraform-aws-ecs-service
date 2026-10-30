@@ -275,7 +275,7 @@ variable "capacity_provider_strategy" {
 }
 
 variable "capacity_provider_strategies" {
-  description = "Capacity provider strategy for the service, one entry per provider, for mixing providers (for example a FARGATE base plus FARGATE_SPOT). When non-empty the service has no launch_type. base is the number of tasks placed on the provider first (at most one entry may set it above 0); weight is the relative share of the remaining tasks. A list of only FARGATE and FARGATE_SPOT makes a Fargate service whatever ecs_launch_type says; any other provider (an Auto Scaling group capacity provider) needs ecs_launch_type = \"EC2\". ECS does not move Spot tasks to on-demand when Spot has no capacity: they stay PENDING, and only a FARGATE base is guaranteed. Set at most one of this, capacity_provider_strategy and use_cluster_default_capacity_provider_strategy."
+  description = "Capacity provider strategy for the service, one entry per provider, for mixing providers (for example a FARGATE base plus FARGATE_SPOT). When non-empty the service has no launch_type. base is the number of tasks placed on the provider first (at most one entry may set it above 0); weight is the relative share of the remaining tasks. ecs_launch_type must match the list: the default FARGATE for a list of only FARGATE and FARGATE_SPOT, EC2 for Auto Scaling group capacity providers. ECS does not move Spot tasks to on-demand when Spot has no capacity: they stay PENDING, and only a FARGATE base is guaranteed. Set at most one of this, capacity_provider_strategy and use_cluster_default_capacity_provider_strategy."
   type = list(object({
     capacity_provider = string
     base              = optional(number, 0)
@@ -334,21 +334,20 @@ variable "capacity_provider_strategies" {
   validation {
     condition = (
       length(var.capacity_provider_strategies) == 0 ||
-      alltrue([for s in var.capacity_provider_strategies : contains(["FARGATE", "FARGATE_SPOT"], s.capacity_provider)]) ||
-      var.ecs_launch_type == "EC2"
+      alltrue([for s in var.capacity_provider_strategies : contains(["FARGATE", "FARGATE_SPOT"], s.capacity_provider)]) == (var.ecs_launch_type == "FARGATE")
     )
-    error_message = "capacity_provider_strategies with Auto Scaling group capacity providers needs ecs_launch_type = \"EC2\"."
+    error_message = "capacity_provider_strategies must match ecs_launch_type: a list of only FARGATE and FARGATE_SPOT needs ecs_launch_type = \"FARGATE\" (the default), and a list with Auto Scaling group capacity providers needs ecs_launch_type = \"EC2\"."
   }
 }
 
 variable "use_cluster_default_capacity_provider_strategy" {
-  description = "When true the service sets neither launch_type nor a capacity provider strategy, so ECS applies the cluster's default_capacity_provider_strategy. The task definition still takes its compatibility from ecs_launch_type, so set that to match the cluster's providers. Mutually exclusive with capacity_provider_strategy and capacity_provider_strategies."
+  description = "When true the service sets neither launch_type nor a capacity provider strategy, so ECS applies the cluster's default_capacity_provider_strategy. The task definition still takes its compatibility from ecs_launch_type, so set that to match the cluster's providers. Mutually exclusive with capacity_provider_strategy and capacity_provider_strategies. Not yet verified with an apply against a cluster that has a default strategy: AWS provider 6.x has an open bug (terraform-provider-aws #44776) where the strategy ECS assigns from the cluster default shows up as drift, so later plans can fail with \"force_new_deployment should be true\" until force_new_deployment is set to true."
   type        = bool
   default     = false
 }
 
 variable "force_new_deployment" {
-  description = "Passed to the service's force_new_deployment. AWS provider 6.x refuses to plan a change to the capacity provider strategy unless this is true (the service is then updated in place with a rolling deployment); provider 5.x replaces the service instead, whatever this is set to. Set it to true for the apply that changes the strategy, and back to false afterwards."
+  description = "Passed to the service's force_new_deployment. AWS provider 6.x refuses to plan a change to the capacity provider strategy unless this is true (the service is then updated in place with a rolling deployment); provider 5.x replaces the service instead unless it is true. Moving from launch_type to a strategy replaces the service on 5.x even then. Set it to true for the apply that changes the strategy, and back to false afterwards. See the README for the full table."
   type        = bool
   default     = false
 }

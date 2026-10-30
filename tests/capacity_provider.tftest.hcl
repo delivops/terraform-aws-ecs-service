@@ -156,24 +156,14 @@ run "spot_only" {
   }
 }
 
-run "fargate_list_wins_over_ec2_launch_type" {
+run "fargate_list_with_ec2_launch_type_is_rejected" {
   command = plan
   variables {
     ecs_launch_type              = "EC2"
+    network_mode                 = "bridge"
     capacity_provider_strategies = [{ capacity_provider = "FARGATE_SPOT" }]
   }
-  assert {
-    condition     = toset([for s in aws_ecs_service.ecs_service.capacity_provider_strategy : { p = s.capacity_provider, b = s.base, w = s.weight }]) == toset([{ p = "FARGATE_SPOT", b = 0, w = 1 }])
-    error_message = "Unexpected capacity_provider_strategy blocks."
-  }
-  assert {
-    condition     = aws_ecs_task_definition.task_definition.requires_compatibilities == toset(["FARGATE"])
-    error_message = "Task definition should require FARGATE."
-  }
-  assert {
-    condition     = aws_ecs_service.ecs_service.platform_version == "LATEST"
-    error_message = "platform_version should be LATEST."
-  }
+  expect_failures = [var.capacity_provider_strategies]
 }
 
 run "asg_list_on_ec2" {

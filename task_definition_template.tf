@@ -209,13 +209,13 @@ locals {
               swappiness = s.linux_parameters.swappiness
               maxSwap    = s.linux_parameters.max_swap
               # Fargate rejects these two, so they are dropped there.
-              sharedMemorySize = local.is_fargate ? null : s.linux_parameters.shared_memory_size
+              sharedMemorySize = var.ecs_launch_type == "FARGATE" ? null : s.linux_parameters.shared_memory_size
               devices = [
                 for d in s.linux_parameters.devices : {
                   hostPath      = d.host_path
                   containerPath = d.container_path != null ? d.container_path : d.host_path
                   permissions   = d.permissions
-                } if !local.is_fargate
+                } if var.ecs_launch_type != "FARGATE"
               ]
             } : k => v if v != null && !try(length(v) == 0, false)
           }

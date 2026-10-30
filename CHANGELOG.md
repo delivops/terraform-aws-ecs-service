@@ -15,14 +15,15 @@ the squash commit; without one the release workflow defaults to a patch bump.
 - **`capacity_provider_strategies`**: a list of capacity providers, each with a
   `base` and a `weight`, so one service can mix providers, for example an
   on-demand `FARGATE` floor with `FARGATE_SPOT` above it. A list of only
-  `FARGATE` and `FARGATE_SPOT` gives a Fargate task definition whatever
-  `ecs_launch_type` says. Validated at plan time: at most one of the string, the
+  `FARGATE` and `FARGATE_SPOT` needs `ecs_launch_type = "FARGATE"` (the
+  default), and a list with Auto Scaling group providers needs `"EC2"`. Validated at plan time: at most one of the string, the
   list and the cluster-default flag; one `base` above 0; `base` 0 to 100000,
   `weight` 0 to 1000, at least one `weight` above 0; no duplicate providers; no
   mixing Fargate with Auto Scaling group providers.
 - **`use_cluster_default_capacity_provider_strategy`**: sets neither
   `launch_type` nor a strategy, so ECS uses the cluster's
-  `default_capacity_provider_strategy`.
+  `default_capacity_provider_strategy`. Not yet apply-tested; see the README for
+  the open provider bug that can affect later plans.
 - **`force_new_deployment`**: passed to the service. AWS provider 6.x will not
   plan a strategy change without it, and provider 5.x replaces the service
   without it. Off by default, which leaves the attribute unset.

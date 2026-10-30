@@ -23,17 +23,6 @@ locals {
     []
   )
 
-  # A list of only the Fargate providers is a Fargate service whatever
-  # ecs_launch_type says. Every other path keeps ecs_launch_type as the source of
-  # truth, since the module cannot know what an Auto Scaling group provider or the
-  # cluster default runs on.
-  is_fargate = (
-    length(var.capacity_provider_strategies) > 0 &&
-    alltrue([for s in var.capacity_provider_strategies : contains(["FARGATE", "FARGATE_SPOT"], s.capacity_provider)])
-  ) || var.ecs_launch_type == "FARGATE"
-
-  task_compatibility = local.is_fargate ? "FARGATE" : var.ecs_launch_type
-
   # awsvpc tasks get their own ENI and register with the target group by IP;
   # bridge and host tasks share the instance network stack and register by
   # instance id.
