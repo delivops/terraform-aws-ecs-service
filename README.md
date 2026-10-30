@@ -526,6 +526,57 @@ resource "cloudflare_record" "api" {
 }
 ```
 
+## Capacity provider strategies
+
+By default a service runs on one launch type, or on one capacity provider named in `capacity_provider_strategy`. To spread a service over several providers, set `capacity_provider_strategies`; to leave the choice to the cluster, set `use_cluster_default_capacity_provider_strategy`. Set at most one of the three. `capacity_provider_strategy = "X"` stays as shorthand for `[{ capacity_provider = "X", base = 0, weight = 1 }]`.
+
+Each entry has a `base` (tasks placed on that provider first; at most one entry may set it above 0, up to 100000) and a `weight` (the relative share of the tasks beyond the base, 0 to 1000, with at least one entry above 0). `FARGATE` and `FARGATE_SPOT` cannot share a list with Auto Scaling group providers. A list of only `FARGATE` and `FARGATE_SPOT` gives a Fargate task definition and `platform_version = "LATEST"` whatever `ecs_launch_type` says; a list with Auto Scaling group providers needs `ecs_launch_type = "EC2"`. With `use_cluster_default_capacity_provider_strategy`, `ecs_launch_type` still sets the task definition's compatibility, so keep it matching the cluster's providers.
+
+```hcl
+# An on-demand floor of 2 tasks, then 4 of every 5 further tasks on Spot.
+module "api" {
+  source  = "delivops/ecs-service/aws"
+  version = "~> 3.5"
+  # ...
+  capacity_provider_strategies = [
+    { capacity_provider = "FARGATE", base = 2, weight = 1 },
+    { capacity_provider = "FARGATE_SPOT", weight = 4 },
+  ]
+}
+
+# Spot only.
+capacity_provider_strategies = [{ capacity_provider = "FARGATE_SPOT" }]
+
+# Use the cluster's default_capacity_provider_strategy.
+use_cluster_default_capacity_provider_strategy = true
+```
+
+### Spot does not fail over to on-demand
+
+ECS does **not** move work from Spot to on-demand. When Fargate Spot has no capacity, the Spot tasks stay `PENDING` until capacity returns, and the service runs below its desired count meanwhile. The `base` on `FARGATE` is the only guaranteed floor: size it to the number of tasks the service cannot do without.
+
+### Changing the strategy of an existing service
+
+What a plan does depends on the AWS provider and on `force_new_deployment`. Plans below were run against a real, imported service (`terraform plan` only, nothing applied) with AWS provider 5.81.0, the oldest version this module works with, and 6.71.0. Every cell was checked for `must be replaced` and `forces replacement`.
+
+| From | To | Provider 5.81.0 | Provider 6.71.0 |
+|---|---|---|---|
+| string | the same provider as a one-entry list | no change | no change |
+| string | a different list | **replaces the service** | plan error (see below) |
+| string | a different list, `force_new_deployment = true` | updated in place | updated in place |
+| string | cluster default, `force_new_deployment = true` | **replaces the service** | updated in place |
+| string | `launch_type` (string removed) | **replaces the service** | **replaces the service** |
+| `launch_type` | a list, `force_new_deployment = true` | **replaces the service** | updated in place |
+| `launch_type` | cluster default | no change planned (see below) | no change planned (see below) |
+
+The `launch_type` rows were planned from a copy of the imported state edited locally to look like a launch-type service, because no such service exists in the account.
+
+- **Provider 6.x** refuses to plan a change to the strategy unless `force_new_deployment` is true: `force_new_deployment should be true when capacity_provider_strategy is being updated`. Set `force_new_deployment = true` for the apply that changes the strategy, then set it back to `false`. The update is a rolling deployment.
+- **Provider 5.x** treats a changed strategy as a new service unless `force_new_deployment = true` is set, and a service that moves from `launch_type` to a strategy is replaced even then.
+- **Replacing a service means downtime unless you plan for it.** Replacing deletes the running service and creates a new one. To avoid downtime, either upgrade to AWS provider 6.x first, or run the new configuration as a second instance of this module under a different `ecs_service_name`, move traffic to it (a weighted target group, or a DNS or listener-rule switch), and then remove the old instance.
+- **`launch_type` to the cluster default plans no change**, because `launch_type` is computed: removing it from the configuration does not clear it on the existing service. The service keeps its launch type. Create a new service to use the cluster default.
+- A consumer that only sets `capacity_provider_strategy` or `ecs_launch_type` sees the same plan as on the previous release; this was checked by comparing the plan text of v3.4.0 and this release against the same service.
+
 ## Autoscaling
 
 Autoscaling is not managed by this module. Attach it externally against the

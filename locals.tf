@@ -15,6 +15,25 @@ locals {
   has_task_role      = var.task_role.create || var.task_role.arn != ""
   has_execution_role = var.execution_role.create || var.execution_role.arn != ""
 
+  # The string input is shorthand for a one-entry list, so both reach the service
+  # through the same block.
+  capacity_provider_entries = (
+    length(var.capacity_provider_strategies) > 0 ? var.capacity_provider_strategies :
+    var.capacity_provider_strategy != "" ? [{ capacity_provider = var.capacity_provider_strategy, base = 0, weight = 1 }] :
+    []
+  )
+
+  # A list of only the Fargate providers is a Fargate service whatever
+  # ecs_launch_type says. Every other path keeps ecs_launch_type as the source of
+  # truth, since the module cannot know what an Auto Scaling group provider or the
+  # cluster default runs on.
+  is_fargate = (
+    length(var.capacity_provider_strategies) > 0 &&
+    alltrue([for s in var.capacity_provider_strategies : contains(["FARGATE", "FARGATE_SPOT"], s.capacity_provider)])
+  ) || var.ecs_launch_type == "FARGATE"
+
+  task_compatibility = local.is_fargate ? "FARGATE" : var.ecs_launch_type
+
   # awsvpc tasks get their own ENI and register with the target group by IP;
   # bridge and host tasks share the instance network stack and register by
   # instance id.

@@ -316,7 +316,7 @@ resource "aws_lb_listener" "tcp_listener_additional" {
 resource "aws_ecs_task_definition" "task_definition" {
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}"
   network_mode             = var.network_mode
-  requires_compatibilities = [var.ecs_launch_type]
+  requires_compatibilities = [local.task_compatibility]
   cpu                      = var.ecs_task_cpu
   memory                   = var.ecs_task_memory
   task_role_arn            = local.task_role_arn
@@ -334,7 +334,7 @@ resource "aws_ecs_task_definition" "template" {
 
   family                   = "${data.aws_ecs_cluster.ecs_cluster.cluster_name}_${var.ecs_service_name}${var.task_definition_template.family_suffix}"
   network_mode             = var.network_mode
-  requires_compatibilities = [var.ecs_launch_type]
+  requires_compatibilities = [local.task_compatibility]
   cpu                      = var.task_definition_template.cpu
   memory                   = var.task_definition_template.memory
   task_role_arn            = local.task_role_arn
@@ -345,7 +345,7 @@ resource "aws_ecs_task_definition" "template" {
   # EC2 tasks run on whatever the instance is, so the platform is only declared
   # for Fargate.
   dynamic "runtime_platform" {
-    for_each = var.ecs_launch_type == "FARGATE" ? [1] : []
+    for_each = local.is_fargate ? [1] : []
     content {
       cpu_architecture        = var.task_definition_template.cpu_architecture
       operating_system_family = var.task_definition_template.operating_system_family
@@ -448,10 +448,11 @@ resource "aws_ecs_service" "ecs_service" {
   health_check_grace_period_seconds  = var.health_check_grace_period_seconds
 
   enable_execute_command = var.enable_execute_command
-  launch_type            = var.capacity_provider_strategy == "" ? var.ecs_launch_type : null
+  force_new_deployment   = var.force_new_deployment ? true : null
+  launch_type            = length(local.capacity_provider_entries) > 0 || var.use_cluster_default_capacity_provider_strategy ? null : var.ecs_launch_type
   scheduling_strategy    = "REPLICA"
   propagate_tags         = "SERVICE"
-  platform_version       = var.ecs_launch_type == "FARGATE" ? "LATEST" : null
+  platform_version       = local.is_fargate ? "LATEST" : null
   deployment_controller {
     type = "ECS"
   }
@@ -489,11 +490,11 @@ resource "aws_ecs_service" "ecs_service" {
   }
 
   dynamic "capacity_provider_strategy" {
-    for_each = var.capacity_provider_strategy != "" ? [1] : []
+    for_each = local.capacity_provider_entries
     content {
-      capacity_provider = var.capacity_provider_strategy
-      weight            = 1
-      base              = 0
+      capacity_provider = capacity_provider_strategy.value.capacity_provider
+      weight            = capacity_provider_strategy.value.weight
+      base              = capacity_provider_strategy.value.base
     }
   }
 
