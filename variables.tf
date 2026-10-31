@@ -269,9 +269,87 @@ variable "health_check_grace_period_seconds" {
   }
 }
 variable "capacity_provider_strategy" {
-  description = "Name of an existing ECS capacity provider for the service. When set, the service uses it instead of a plain launch_type. Leave empty to use ecs_launch_type directly."
+  description = "Name of an existing ECS capacity provider for the service. When set, the service uses it instead of a plain launch_type. Shorthand for a single capacity_provider_strategies entry with base 0 and weight 1. Leave empty to use ecs_launch_type directly."
   type        = string
   default     = ""
+}
+
+variable "capacity_provider_strategies" {
+  description = "Capacity provider strategy for the service, one entry per provider, for mixing providers (for example a FARGATE base plus FARGATE_SPOT). When non-empty the service has no launch_type. base is the number of tasks placed on the provider first (at most one entry may set it above 0); weight is the relative share of the remaining tasks. ecs_launch_type must match the list: the default FARGATE for a list of only FARGATE and FARGATE_SPOT, EC2 for Auto Scaling group capacity providers. ECS does not move Spot tasks to on-demand when Spot has no capacity: they stay PENDING, and only a FARGATE base is guaranteed. Set at most one of this, capacity_provider_strategy and use_cluster_default_capacity_provider_strategy."
+  type = list(object({
+    capacity_provider = string
+    base              = optional(number, 0)
+    weight            = optional(number, 1)
+  }))
+  default = []
+
+  validation {
+    condition = length(compact([
+      var.capacity_provider_strategy,
+      length(var.capacity_provider_strategies) > 0 ? "list" : "",
+      var.use_cluster_default_capacity_provider_strategy ? "default" : "",
+    ])) <= 1
+    error_message = "Set at most one of capacity_provider_strategy (a single provider name), capacity_provider_strategies (a list) and use_cluster_default_capacity_provider_strategy."
+  }
+
+  validation {
+    condition     = alltrue([for s in var.capacity_provider_strategies : s.capacity_provider != ""])
+    error_message = "Every capacity_provider_strategies entry needs a non-empty capacity_provider."
+  }
+
+  validation {
+    condition     = length(distinct([for s in var.capacity_provider_strategies : s.capacity_provider])) == length(var.capacity_provider_strategies)
+    error_message = "capacity_provider_strategies lists the same capacity_provider twice; ECS rejects duplicates. Merge them into one entry."
+  }
+
+  validation {
+    condition     = alltrue([for s in var.capacity_provider_strategies : s.base >= 0 && s.base <= 100000 && floor(s.base) == s.base])
+    error_message = "capacity_provider_strategies base must be a whole number from 0 to 100000."
+  }
+
+  validation {
+    condition     = alltrue([for s in var.capacity_provider_strategies : s.weight >= 0 && s.weight <= 1000 && floor(s.weight) == s.weight])
+    error_message = "capacity_provider_strategies weight must be a whole number from 0 to 1000."
+  }
+
+  validation {
+    condition     = length([for s in var.capacity_provider_strategies : s if s.base > 0]) <= 1
+    error_message = "Only one capacity_provider_strategies entry may set base above 0; ECS allows a single base provider per strategy."
+  }
+
+  validation {
+    condition     = length(var.capacity_provider_strategies) == 0 || anytrue([for s in var.capacity_provider_strategies : s.weight > 0])
+    error_message = "At least one capacity_provider_strategies entry needs weight above 0, otherwise ECS has nowhere to place tasks beyond the base."
+  }
+
+  validation {
+    condition = (
+      length(var.capacity_provider_strategies) == 0 ||
+      alltrue([for s in var.capacity_provider_strategies : contains(["FARGATE", "FARGATE_SPOT"], s.capacity_provider)]) ||
+      !anytrue([for s in var.capacity_provider_strategies : contains(["FARGATE", "FARGATE_SPOT"], s.capacity_provider)])
+    )
+    error_message = "capacity_provider_strategies cannot mix FARGATE or FARGATE_SPOT with Auto Scaling group capacity providers in one list; ECS rejects it."
+  }
+
+  validation {
+    condition = (
+      length(var.capacity_provider_strategies) == 0 ||
+      alltrue([for s in var.capacity_provider_strategies : contains(["FARGATE", "FARGATE_SPOT"], s.capacity_provider)]) == (var.ecs_launch_type == "FARGATE")
+    )
+    error_message = "capacity_provider_strategies must match ecs_launch_type: a list of only FARGATE and FARGATE_SPOT needs ecs_launch_type = \"FARGATE\" (the default), and a list with Auto Scaling group capacity providers needs ecs_launch_type = \"EC2\"."
+  }
+}
+
+variable "use_cluster_default_capacity_provider_strategy" {
+  description = "When true the service sets neither launch_type nor a capacity provider strategy, so ECS applies the cluster's default_capacity_provider_strategy. The task definition still takes its compatibility from ecs_launch_type, so set that to match the cluster's providers. Mutually exclusive with capacity_provider_strategy and capacity_provider_strategies. Not yet verified with an apply against a cluster that has a default strategy: AWS provider 6.x has an open bug (terraform-provider-aws #44776) where the strategy ECS assigns from the cluster default shows up as drift, so later plans can fail with \"force_new_deployment should be true\" until force_new_deployment is set to true."
+  type        = bool
+  default     = false
+}
+
+variable "force_new_deployment" {
+  description = "Passed to the service's force_new_deployment. AWS provider 6.x refuses to plan a change to the capacity provider strategy unless this is true (the service is then updated in place with a rolling deployment); provider 5.x replaces the service instead unless it is true. Moving from launch_type to a strategy replaces the service on 5.x even then. Set it to true for the apply that changes the strategy, and back to false afterwards. See the README for the full table."
+  type        = bool
+  default     = false
 }
 
 variable "ecr" {

@@ -448,7 +448,8 @@ resource "aws_ecs_service" "ecs_service" {
   health_check_grace_period_seconds  = var.health_check_grace_period_seconds
 
   enable_execute_command = var.enable_execute_command
-  launch_type            = var.capacity_provider_strategy == "" ? var.ecs_launch_type : null
+  force_new_deployment   = var.force_new_deployment ? true : null
+  launch_type            = length(local.capacity_provider_entries) > 0 || var.use_cluster_default_capacity_provider_strategy ? null : var.ecs_launch_type
   scheduling_strategy    = "REPLICA"
   propagate_tags         = "SERVICE"
   platform_version       = var.ecs_launch_type == "FARGATE" ? "LATEST" : null
@@ -489,11 +490,11 @@ resource "aws_ecs_service" "ecs_service" {
   }
 
   dynamic "capacity_provider_strategy" {
-    for_each = var.capacity_provider_strategy != "" ? [1] : []
+    for_each = local.capacity_provider_entries
     content {
-      capacity_provider = var.capacity_provider_strategy
-      weight            = 1
-      base              = 0
+      capacity_provider = capacity_provider_strategy.value.capacity_provider
+      weight            = capacity_provider_strategy.value.weight
+      base              = capacity_provider_strategy.value.base
     }
   }
 
